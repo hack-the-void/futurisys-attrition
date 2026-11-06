@@ -1,0 +1,5 @@
+# Fins de ligne LF sous Windows et Linux
+* text=auto eol=lf
+*.png binary
+*.pdf binary
+*.joblib binary

@@ -1,0 +1,86 @@
+name: CD
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verification:
+    name: Vérification
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Git doit pouvoir remonter du tag à l'historique de main.
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Vérifier que le tag pointe sur main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Le tag $GITHUB_REF_NAME ne pointe pas sur un commit de main."
+            exit 1
+          fi
+
+      - name: Vérifier que le tag correspond à la version du projet
+        run: |
+          attendu="v$(uv version --short)"
+          if [ "$GITHUB_REF_NAME" != "$attendu" ]; then
+            echo "::error::Le tag $GITHUB_REF_NAME diffère de la version du projet ($attendu)."
+            exit 1
+          fi
+
+      - name: Lancer les tests sur le commit à livrer
+        run: uv run --locked pytest
+
+      - name: Construire le paquet
+        run: uv build
+
+      - name: Conserver le paquet
+        uses: actions/upload-artifact@v7
+        with:
+          name: paquet
+          path: dist/
+
+  livraison:
+    name: Livraison
+    needs: verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    permissions:
+      contents: write # Création de la release.
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Contrôler la configuration de production
+        env:
+          APP_ENV: ${{ vars.APP_ENV }}
+          API_KEY: ${{ secrets.API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run --locked --no-dev python -m attrition_api.config
+
+      - name: Récupérer le paquet
+        uses: actions/download-artifact@v8
+        with:
+          name: paquet
+          path: dist/
+
+      - name: Publier la GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" dist/*
+          --verify-tag --generate-notes --title "$GITHUB_REF_NAME"

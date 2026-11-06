@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Outils
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+
+# Configuration locale
+.env
+.env.*
+!.env.example
+
+# Données RH et modèles
+data/
+*.csv
+*.joblib
+*.pkl
+*.pickle
+
+# Éditeurs et système
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Notes personnelles
+notes/

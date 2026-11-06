@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Analyser le code
+        run: uv run --locked ruff check .
+
+      - name: Vérifier le formatage
+        run: uv run --locked ruff format --check .
+
+      - name: Vérifier que les requirements sont à jour
+        run: |
+          uv export --locked --no-dev --no-hashes --no-emit-project -o requirements.txt
+          uv export --locked --no-hashes --no-emit-project -o requirements-dev.txt
+          git diff --exit-code -- requirements.txt requirements-dev.txt
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: test
+      deployment: false # Les tests ne créent pas de déploiement.
+    env:
+      APP_ENV: ${{ vars.APP_ENV }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Installer uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Lancer les tests avec couverture
+        run: uv run --locked pytest --cov-report=html --cov-report=xml
+
+      - name: Contrôler la configuration de l'environnement de test
+        run: uv run --locked python -m attrition_api.config
+
+      - name: Conserver le rapport de couverture
+        uses: actions/upload-artifact@v7
+        with:
+          name: rapport-couverture
+          path: |
+            htmlcov/
+            coverage.xml
+
+  secrets:
+    name: Secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Gitleaks compare les commits avant et après le push.
+
+      - name: Chercher des secrets dans les commits poussés
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: false
