@@ -4,14 +4,9 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from attrition_api.dataset import (
-    charger_donnees_brutes,
-    importer_employes,
-    predire_dataset,
-)
+from attrition_api.dataset import charger_donnees_brutes, importer_employes
 from attrition_api.db import (
     EmployeDataset,
-    Entree,
     PredictionEnregistree,
     creer_moteur,
     enregistrer_modele,
@@ -21,8 +16,6 @@ from attrition_api.modele import charger_modele
 from attrition_api.schemas import EXEMPLE_EMPLOYE
 
 DOSSIER_SOURCES = Path(__file__).resolve().parents[1] / "donnees" / "sources"
-# Les mini-CSV contiennent les employés 478, 734 et 1839, dans cet ordre.
-PROFILS = ["depart", "stable", "premier_emploi"]
 
 
 @pytest.fixture(scope="module")
@@ -64,29 +57,19 @@ def test_import_des_employes(session, brut):
     assert session.get(EmployeDataset, 734).jeu == "train"
 
 
-def test_predictions_du_dataset_identiques_a_l_api(session, brut, modele, exemples):
+def test_import_sans_prediction(session, brut):
     importer_employes(session, brut, ids_test=[478])
-    assert predire_dataset(session, modele) == 3
-
-    predictions = session.scalars(
-        select(PredictionEnregistree).join(Entree).order_by(Entree.employe_id)
-    ).all()
-    assert [p.entree.employe_id for p in predictions] == [478, 734, 1839]
-    assert {p.entree.source for p in predictions} == {"dataset"}
-    # Même modèle, mêmes champs : mêmes probabilités que par l'API.
-    assert [p.probabilite for p in predictions] == pytest.approx(
-        [exemples[nom]["probabilite_attendue"] for nom in PROFILS], abs=1e-9
-    )
+    assert compter(session, PredictionEnregistree) == 0
 
 
-def test_reimport_sans_doublon_et_sans_toucher_aux_appels_api(session, brut, modele):
+def test_reimport_sans_doublon_et_sans_perdre_les_predictions(session, brut, modele):
+    importer_employes(session, brut, ids_test=[478])
     enregistrer_modele(session, modele)
-    enregistrer_prediction(session, EXEMPLE_EMPLOYE, 0.5, modele, source="api")
-    for _ in range(2):
-        importer_employes(session, brut, ids_test=[478])
-        predire_dataset(session, modele)
+    enregistrer_prediction(session, EXEMPLE_EMPLOYE, 0.9, modele, source="api", employe_id=478)
+
+    importer_employes(session, brut, ids_test=[478, 734])
 
     assert compter(session, EmployeDataset) == 3
-    assert compter(session, Entree, Entree.source == "dataset") == 3
-    assert compter(session, Entree, Entree.source == "api") == 1
-    assert compter(session, PredictionEnregistree) == 4
+    assert session.get(EmployeDataset, 734).jeu == "test"
+    [prediction] = session.scalars(select(PredictionEnregistree)).all()
+    assert prediction.entree.employe_id == 478

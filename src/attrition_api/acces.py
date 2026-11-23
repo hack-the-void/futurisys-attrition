@@ -1,18 +1,18 @@
 """Rôle PostgreSQL de l'API et droits d'accès aux tables.
 
 Deux comptes, chacun avec le minimum de droits nécessaire :
+- le propriétaire (`POSTGRES_USER`) : `create_db`, import du dataset, analyses ;
+- `api_attrition`, pour l'API : lire et ajouter dans `modeles`, `entrees` et `predictions`,
+  et lire dans `employes` les seules colonnes utiles au modèle.
 
-| Compte | Utilisé par | Droits |
-| --- | --- | --- |
-| propriétaire (`POSTGRES_USER`) | `create_db`, import du dataset, analyses | Tout |
-| `api_attrition` | l'API | Lire et ajouter dans `modeles`, `entrees`, `predictions` |
-
-L'API ne peut ni modifier ni supprimer une prédiction, ni lire le dataset `employes`, ni
-changer le schéma. Une faille dans l'API ne peut donc pas effacer l'historique.
+L'API ne peut ni modifier ni supprimer une prédiction, ni lire le départ réel d'un employé,
+ni changer le schéma. Une faille dans l'API ne peut donc pas effacer l'historique.
 """
 
 from psycopg import sql
 from sqlalchemy import Engine, text
+
+from attrition_api.db import COLONNES_EMPLOYE_API
 
 ROLE_API = "api_attrition"
 TABLES_API = ["modeles", "entrees", "predictions"]
@@ -32,6 +32,10 @@ def instructions_acces(base: str, role_api: str = ROLE_API) -> list[sql.Composed
         sql.SQL("REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM {}").format(role),
         sql.SQL("GRANT SELECT, INSERT ON {} TO {}").format(
             sql.SQL(", ").join(map(sql.Identifier, TABLES_API)), role
+        ),
+        # Droit par colonne : la cible et le découpage train/test restent invisibles.
+        sql.SQL("GRANT SELECT ({}) ON employes TO {}").format(
+            sql.SQL(", ").join(map(sql.Identifier, COLONNES_EMPLOYE_API)), role
         ),
         sql.SQL("GRANT USAGE ON SEQUENCE {} TO {}").format(
             sql.SQL(", ").join(map(sql.Identifier, SEQUENCES_API)), role

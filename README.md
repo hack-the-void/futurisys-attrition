@@ -109,25 +109,29 @@ la présence des tables. Elle refuse de démarrer si l'une de ces vérifications
 | --- | --- | --- |
 | `GET /health` | Non | État du service et version du modèle |
 | `GET /modele` | Oui | Seuil, variables et résultats du modèle sur le test |
-| `POST /predictions` | Oui | Calcule et enregistre la probabilité de départ d'un employé |
+| `GET /employes` | Oui | Employés de la base, pour en choisir un (`?departement=`, `?poste=`, `?limite=`, `?decalage=`) |
+| `GET /employes/{id}` | Oui | Les 25 champs RH d'un employé, sans son départ réel |
+| `POST /employes/{id}/predictions` | Oui | Fait passer l'employé choisi par le modèle, enregistre et renvoie la prédiction |
+| `POST /predictions` | Oui | Même calcul pour un employé saisi à la main (25 champs en JSON) |
 | `GET /predictions` | Oui | Dernières prédictions (`?limite=20`, 100 au plus) |
 | `GET /predictions/{id}` | Oui | Une prédiction et les données qui l'ont produite |
 
-`POST /predictions` attend les 25 champs RH d'un employé, au format JSON. L'exemple complet
-est prérempli dans Swagger.
+L'utilisateur choisit un employé, puis demande sa prédiction. Le modèle la calcule à ce
+moment-là : rien n'est calculé à l'avance.
 
 ```bash
-curl -X POST http://127.0.0.1:8000/predictions \
-  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d @employe.json
+curl -X POST http://127.0.0.1:8000/employes/478/predictions -H "X-API-Key: $API_KEY"
 ```
 
 ```json
-{"id_prediction": 1, "probabilite_depart": 0.976, "risque_depart": true, "seuil": 0.445,
- "version_modele": "1.0.0", "calculee_le": "2026-11-23T17:20:00Z"}
+{"id_prediction": 1, "id_employe": 478, "probabilite_depart": 0.963, "risque_depart": true,
+ "seuil": 0.445, "version_modele": "1.0.0", "calculee_le": "2026-11-23T18:28:01Z"}
 ```
 
-Une entrée invalide renvoie une erreur 422 qui détaille les champs en cause : champ
+`POST /predictions` reçoit à la place les 25 champs RH en JSON, pour un employé absent de
+la base. L'exemple complet est prérempli dans Swagger.
+
+Un employé inconnu renvoie 404. Une entrée invalide renvoie une erreur 422 qui détaille les champs en cause : champ
 manquant ou inconnu, valeur hors domaine, modalité absente de l'entraînement, ou durées
 incohérentes (par exemple plus d'ancienneté que d'expérience). Elle n'est pas enregistrée.
 
@@ -141,7 +145,7 @@ décrits dans
 
 ```bash
 uv run python scripts/importer_dataset.py --source ../technova-attrition  # 1 470 employés
-uv run python scripts/interroger_db.py performances_test
+uv run python scripts/interroger_db.py performances_test  # sur les employés déjà prédits
 ```
 
 ## Authentification et sécurité
@@ -157,7 +161,8 @@ uv run python scripts/interroger_db.py performances_test
   empreinte SHA-256 correspond à celle des métadonnées. Cela protège contre un fichier
   corrompu ou remplacé seul, mais pas contre une modification du dépôt lui-même.
 - **Base :** l'API se connecte avec un rôle qui ne peut que lire et ajouter des
-  prédictions : ni modification, ni suppression, ni accès au dataset. Les requêtes passent
+  prédictions, sans modification ni suppression. Dans le dataset, il ne lit que les champs
+  du modèle, pas le départ réel. Les requêtes passent
   par SQLAlchemy, avec des paramètres liés, ce qui écarte les injections SQL. Le conteneur
   de l'API tourne sans privilèges root.
 - **Données :** l'artefact versionné ne contient aucune donnée RH, et le dataset reste hors
@@ -170,7 +175,7 @@ uv run python scripts/interroger_db.py performances_test
 | --- | --- |
 | [src/attrition_api/](src/attrition_api/) | `config.py` (configuration), `features.py` (calcul des variables), `modele.py` (chargement et prédiction), `schemas.py` (validation), `securite.py` (clé d'API), `db.py` (tables), `create_db.py` (création de la base), `acces.py` (rôle de l'API), `dataset.py` (import du dataset), `main.py` (routes) |
 | [tests/](tests/) | Tests unitaires dans `unit/`, tests de l'API dans `fonctionnels/` |
-| [scripts/](scripts/) | Export du modèle, import du dataset, génération et envoi des exemples, requêtes sur la base |
+| [scripts/](scripts/) | Export du modèle, import du dataset, requêtes sur la base |
 | [db/](db/) | Script SQL, requêtes nommées et exemples |
 | [docs/](docs/) | Conventions, pipeline CI/CD et base de données |
 

@@ -19,13 +19,17 @@ from attrition_api.db import (
     creer_moteur,
     enregistrer_modele,
     enregistrer_prediction,
+    lire_employe,
+    lister_employes,
     lister_predictions,
     tables_manquantes,
 )
 from attrition_api.modele import ModeleAttrition, charger_modele
 from attrition_api.schemas import (
     Employe,
+    EmployeResume,
     EtatService,
+    FicheEmploye,
     InfosModele,
     Prediction,
     PredictionDetaillee,
@@ -34,6 +38,13 @@ from attrition_api.securite import verifier_cle_api
 
 DESCRIPTION = """
 Estime le risque de démission d'un employé à partir de 25 champs RH.
+
+Deux façons de l'utiliser :
+- choisir un employé de la base (`GET /employes`), puis demander sa prédiction
+  (`POST /employes/{id_employe}/predictions`) ;
+- envoyer soi-même les 25 champs d'un employé (`POST /predictions`).
+
+Dans les deux cas, le modèle calcule la prédiction au moment de l'appel.
 
 Une alerte (`risque_depart`) signale un profil à rencontrer en entretien. Elle ne suffit
 pas à elle seule pour prendre une décision RH. Au seuil retenu, le modèle détecte 70 % des
@@ -115,10 +126,59 @@ def infos_modele(modele: ModeleCharge) -> InfosModele:
 )
 def predire(employe: Employe, modele: ModeleCharge, session: SessionBase) -> Prediction:
     """Calcule la probabilité de départ d'un employé et l'enregistre avec les données reçues."""
+    return calculer_et_enregistrer(employe, modele, session)
+
+
+def calculer_et_enregistrer(
+    employe: Employe, modele: ModeleAttrition, session: Session, id_employe: int | None = None
+) -> Prediction:
     donnees = employe.model_dump()
     [probabilite] = modele.predire([donnees])
-    ligne = enregistrer_prediction(session, donnees, probabilite, modele, source="api")
+    ligne = enregistrer_prediction(
+        session, donnees, probabilite, modele, source="api", employe_id=id_employe
+    )
     return Prediction.depuis_base(ligne)
+
+
+@app.get("/employes", tags=["Employés"], dependencies=protegee)
+def employes(
+    session: SessionBase,
+    limite: Annotated[int, Query(ge=1, le=100)] = 20,
+    decalage: Annotated[int, Query(ge=0)] = 0,
+    departement: str | None = None,
+    poste: str | None = None,
+) -> list[EmployeResume]:
+    """Liste les employés de la base, pour en choisir un. Filtres facultatifs."""
+    lignes = lister_employes(session, limite, decalage, departement, poste)
+    return [EmployeResume(**ligne) for ligne in lignes]
+
+
+def fiche_employe(id_employe: int, session: SessionBase) -> FicheEmploye:
+    ligne = lire_employe(session, id_employe)
+    if ligne is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Employé introuvable")
+    return FicheEmploye(**ligne)
+
+
+FicheChoisie = Annotated[FicheEmploye, Depends(fiche_employe)]
+
+
+@app.get("/employes/{id_employe}", tags=["Employés"], dependencies=protegee)
+def lire_fiche(fiche: FicheChoisie) -> FicheEmploye:
+    """Les 25 champs RH d'un employé, tels que le modèle les recevra."""
+    return fiche
+
+
+@app.post(
+    "/employes/{id_employe}/predictions",
+    tags=["Employés"],
+    dependencies=protegee,
+    status_code=status.HTTP_201_CREATED,
+)
+def predire_employe(fiche: FicheChoisie, modele: ModeleCharge, session: SessionBase) -> Prediction:
+    """Fait passer l'employé choisi par le modèle, enregistre et renvoie la prédiction."""
+    employe = Employe(**fiche.model_dump(include=set(Employe.model_fields)))
+    return calculer_et_enregistrer(employe, modele, session, id_employe=fiche.id)
 
 
 @app.get("/predictions", tags=["Prédictions"], dependencies=protegee)

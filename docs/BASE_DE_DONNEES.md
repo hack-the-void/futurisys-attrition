@@ -1,7 +1,8 @@
 # Base de données
 
-La base contient le dataset complet du projet 4 (1 470 employés) et toutes les prédictions
-du modèle : celles calculées sur le dataset à l'import, et celles demandées à l'API. On garde
+La base contient le dataset complet du projet 4 (1 470 employés) et chaque prédiction
+demandée à l'API. Aucune prédiction n'est calculée à l'avance : l'utilisateur choisit un
+employé, l'API le fait passer par le modèle, enregistre le résultat et le renvoie. On garde
 ainsi la trace de ce que le modèle a dit, sur quelles données et avec quelle version, et on
 peut comparer ses alertes aux départs réels.
 
@@ -33,8 +34,8 @@ erDiagram
     entrees {
         serial id PK
         timestamptz recue_le
-        varchar source "api, script ou dataset"
-        int employe_id FK "rempli pour le dataset"
+        varchar source "api"
+        int employe_id FK "employé choisi, s'il y en a un"
         int age
         varchar poste
         float revenu_mensuel
@@ -62,15 +63,15 @@ restent identiques.
 | --- | --- | --- |
 | `employes` | employé du dataset | Les trois extraits RH fusionnés, avec la cible et le jeu (`train` ou `test`) du projet 4. |
 | `modeles` | version de modèle servie | Ajoutée au démarrage de l'API. Garde le seuil, l'empreinte et les résultats du test. |
-| `entrees` | employé envoyé au modèle | Les 25 champs RH validés, avec la date et l'origine de l'envoi. Lien vers `employes` pour le dataset. |
+| `entrees` | employé envoyé au modèle | Les 25 champs RH validés, avec la date et l'origine de l'envoi. Lien vers `employes` quand l'utilisateur a choisi un employé de la base. |
 | `predictions` | calcul d'un modèle sur une entrée | Probabilité, seuil appliqué et alerte. |
 
 ## Choix de conception
 
 - **Dataset brut à part.** `employes` garde toutes les colonnes des extraits, y compris
   celles que le modèle ignore (département, heures de travail...). `entrees` ne contient
-  que ce que le modèle reçoit, quelle que soit l'origine. Les prédictions du dataset et de
-  l'API se lisent donc avec les mêmes requêtes.
+  que ce que le modèle reçoit. Un employé choisi dans la base et un employé saisi à la
+  main sont donc enregistrés de la même façon.
 - **Entrées et prédictions séparées.** Une entrée peut recevoir une prédiction par version
   de modèle (contrainte `UNIQUE (entree_id, version_modele)`). Après un nouvel entraînement,
   on peut recalculer l'historique et comparer les deux modèles sur les mêmes employés.
@@ -95,10 +96,12 @@ Deux comptes PostgreSQL, chacun avec son mot de passe dans `.env` :
 | Compte | Variable | Droits | Utilisé par |
 | --- | --- | --- | --- |
 | `attrition` | `ADMIN_DATABASE_URL` | Propriétaire de la base | `create_db`, l'import du dataset, `interroger_db.py` |
-| `api_attrition` | `DATABASE_URL` | `SELECT` et `INSERT` sur `modeles`, `entrees` et `predictions` | L'API |
+| `api_attrition` | `DATABASE_URL` | `SELECT` et `INSERT` sur `modeles`, `entrees` et `predictions` ; `SELECT` sur 27 colonnes de `employes` | L'API |
 
-L'API ne peut donc ni modifier ni supprimer une prédiction, ni lire la table `employes`
-(qui contient la cible), ni créer ou supprimer une table. Si elle était compromise, elle
+L'API lit dans `employes` l'identifiant, le département et les 25 champs du modèle, grâce
+à un droit par colonne. Elle ne peut pas lire le départ réel (`a_quitte_l_entreprise`) ni
+le découpage `jeu`. Elle ne peut ni modifier ni supprimer une prédiction, ni créer ou
+supprimer une table. Si elle était compromise, elle
 ne pourrait pas effacer l'historique. `PUBLIC` perd aussi ses droits par défaut sur la
 base. Les instructions `GRANT` sont dans [src/attrition_api/acces.py](../src/attrition_api/acces.py)
 et à la fin de [db/schema.sql](../db/schema.sql). Des tests se connectent avec ce rôle
@@ -119,23 +122,30 @@ tables. `--sql` affiche le script SQL sans l'exécuter. Avec `docker compose up`
 
 L'import lit les trois CSV du projet 4 et prend la liste du jeu de test dans son artefact
 (`artefacts/modele_final.joblib`), qui restent hors de Git. Il insère les 1 470 employés,
-puis enregistre une prédiction du modèle pour chacun (source `dataset`). On peut le
-relancer : il remplace les données du dataset sans toucher aux appels de l'API.
-`--sans-predictions` n'insère que les employés.
+sans aucune prédiction. On peut le relancer : il met les employés à jour et garde les
+prédictions déjà faites.
 
-```text
-$ uv run python scripts/interroger_db.py performances_test
-version_modele  employes  departs  vrais_positifs  fausses_alertes  departs_manques  rappel
-         1.0.0       294       47              33               64               14   0.702
+## Prédire un employé de la base
+
+```bash
+curl "http://127.0.0.1:8000/employes?departement=Commercial&limite=5" -H "X-API-Key: $API_KEY"
+curl -X POST http://127.0.0.1:8000/employes/478/predictions -H "X-API-Key: $API_KEY"
 ```
 
-Recalculés depuis la base, les résultats sur le jeu de test sont ceux du projet 4.
+L'API lit la fiche de l'employé, la valide avec le même schéma que `POST /predictions`,
+calcule la probabilité, puis enregistre l'entrée (avec `employe_id`) et la prédiction.
+Chaque appel donne une nouvelle prédiction, datée.
+
+`performances_test` compare ensuite, en SQL, les alertes aux départs réels des employés du
+jeu de test déjà prédits. Un employé prédit plusieurs fois ne compte qu'une fois. Une fois
+les 294 employés du test prédits, on retrouve les résultats du projet 4 : 33 départs
+détectés, 64 fausses alertes et 14 départs manqués.
 
 ## Requêtes
 
 [db/requetes.sql](../db/requetes.sql) contient des requêtes nommées : synthèse, alertes par
 poste, performances sur le test, départs par département... Elles portent sur le dataset
-importé et sur les appels reçus par l'API.
+importé et sur les prédictions demandées à l'API.
 
 ```bash
 uv run python scripts/interroger_db.py --liste
@@ -147,8 +157,8 @@ uv run python scripts/interroger_db.py export --csv predictions.csv
 ## Données personnelles
 
 Les tables `employes` et `entrees` contiennent des données RH personnelles, dont le genre
-et le statut marital. La base ne tourne qu'en local, sur `127.0.0.1`, et l'API n'a pas
-accès à `employes`. En production, il faudrait aussi fixer une durée de conservation et
+et le statut marital. La base ne tourne qu'en local, sur `127.0.0.1`, et l'API ne voit
+pas le départ réel des employés. En production, il faudrait aussi fixer une durée de conservation et
 pouvoir supprimer un employé. La suppression d'une entrée supprime ses prédictions
 (`ON DELETE CASCADE`). Le dataset n'est pas versionné. Seuls trois employés du jeu de test
 (478, 734 et 1839) sont dans le dépôt : ils servent d'exemple dans Swagger et de références

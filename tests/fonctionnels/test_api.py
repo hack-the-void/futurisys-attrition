@@ -1,13 +1,17 @@
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from attrition_api.dataset import charger_donnees_brutes, importer_employes
 from attrition_api.db import Entree, ModeleEnregistre, PredictionEnregistree, creer_moteur
 from attrition_api.main import app
 from attrition_api.schemas import EXEMPLE_EMPLOYE
 
+DOSSIER_SOURCES = Path(__file__).resolve().parents[1] / "donnees" / "sources"
 CLE_TEST = "cle-de-test-pour-les-appels-a-l-api"
 EN_TETES = {"X-API-Key": CLE_TEST}
 
@@ -29,6 +33,12 @@ def session(url_base):
     moteur.dispose()
 
 
+@pytest.fixture
+def employes(session):
+    """Les employés 478, 734 et 1839 dans la table employes."""
+    importer_employes(session, charger_donnees_brutes(DOSSIER_SOURCES), ids_test={478})
+
+
 def predire(client, employe=EXEMPLE_EMPLOYE):
     reponse = client.post("/predictions", headers=EN_TETES, json=employe)
     assert reponse.status_code == 201, reponse.text
@@ -47,9 +57,15 @@ def test_health_sans_authentification(client):
 def test_documentation_openapi(client):
     assert client.get("/docs").status_code == 200
     schema = client.get("/openapi.json").json()
-    assert {"/health", "/modele", "/predictions", "/predictions/{id_prediction}"} <= set(
-        schema["paths"]
-    )
+    assert {
+        "/health",
+        "/modele",
+        "/employes",
+        "/employes/{id_employe}",
+        "/employes/{id_employe}/predictions",
+        "/predictions",
+        "/predictions/{id_prediction}",
+    } <= set(schema["paths"])
     assert "APIKeyHeader" in schema["components"]["securitySchemes"]
 
 
@@ -66,6 +82,9 @@ def test_modele_enregistre_au_demarrage(client, session):
     ("methode", "route"),
     [
         ("get", "/modele"),
+        ("get", "/employes"),
+        ("get", "/employes/478"),
+        ("post", "/employes/478/predictions"),
         ("post", "/predictions"),
         ("get", "/predictions"),
         ("get", "/predictions/1"),
@@ -164,6 +183,76 @@ def test_limite_hors_bornes(client, limite):
 def test_entree_invalide_ni_predite_ni_enregistree(client, session, corps):
     reponse = client.post("/predictions", headers=EN_TETES, json=corps)
     assert reponse.status_code == 422
+    assert session.scalar(select(func.count()).select_from(Entree)) == 0
+
+
+# --- Employés de la base -------------------------------------------------------------
+
+
+def test_lister_les_employes(client, employes):
+    reponse = client.get("/employes", headers=EN_TETES)
+    assert reponse.status_code == 200
+    assert [e["id"] for e in reponse.json()] == [478, 734, 1839]
+    assert reponse.json()[0] == {
+        "id": 478,
+        "age": 21,
+        "genre": "F",
+        "departement": "Commercial",
+        "poste": "Représentant Commercial",
+    }
+
+
+@pytest.mark.parametrize(
+    ("params", "ids"),
+    [
+        ({"limite": 1, "decalage": 1}, [734]),
+        ({"poste": "Représentant Commercial"}, [478]),
+        ({"departement": "Inconnu"}, []),
+    ],
+)
+def test_filtrer_les_employes(client, employes, params, ids):
+    reponse = client.get("/employes", headers=EN_TETES, params=params)
+    assert [e["id"] for e in reponse.json()] == ids
+
+
+def test_fiche_employe_sans_son_depart_reel(client, employes):
+    reponse = client.get("/employes/478", headers=EN_TETES)
+    assert reponse.status_code == 200
+    fiche = reponse.json()
+    assert fiche == {"id": 478, "departement": "Commercial"} | EXEMPLE_EMPLOYE
+    assert "a_quitte_l_entreprise" not in fiche
+
+
+@pytest.mark.parametrize("nom", ["depart", "stable", "premier_emploi"])
+def test_prediction_d_un_employe_choisi(client, session, employes, exemples, nom):
+    exemple = exemples[nom]
+    id_employe = exemple["id_employee"]
+    assert session.scalar(select(func.count()).select_from(PredictionEnregistree)) == 0
+
+    reponse = client.post(f"/employes/{id_employe}/predictions", headers=EN_TETES)
+
+    assert reponse.status_code == 201, reponse.text
+    prediction = reponse.json()
+    assert prediction["id_employe"] == id_employe
+    assert prediction["probabilite_depart"] == pytest.approx(exemple["probabilite_attendue"])
+    ligne = session.get(PredictionEnregistree, prediction["id_prediction"])
+    assert (ligne.entree.employe_id, ligne.entree.source) == (id_employe, "api")
+
+
+def test_chaque_choix_est_une_nouvelle_prediction(client, employes):
+    ids = {
+        client.post("/employes/478/predictions", headers=EN_TETES).json()["id_prediction"]
+        for _ in range(2)
+    }
+    assert len(ids) == 2
+
+
+@pytest.mark.parametrize(
+    ("methode", "route"), [("get", "/employes/1"), ("post", "/employes/1/predictions")]
+)
+def test_employe_introuvable(client, session, employes, methode, route):
+    reponse = client.request(methode, route, headers=EN_TETES)
+    assert reponse.status_code == 404
     assert session.scalar(select(func.count()).select_from(Entree)) == 0
 
 
