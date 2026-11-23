@@ -7,11 +7,18 @@ authors = [{ name = "Benjamin Thery" }]
 # Le modèle a été sérialisé sous Python 3.12.
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "fastapi>=0.115",
+    "pandas>=2.2",
+    "psycopg[binary]>=3.2",
     "pydantic-settings>=2.6",
+    "scikit-learn==1.9.1",
+    "sqlalchemy>=2.0",
+    "uvicorn>=0.32",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28",
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "ruff>=0.8",
