@@ -41,8 +41,23 @@ jobs:
     environment:
       name: test
       deployment: false # Les tests ne créent pas de déploiement.
+    services:
+      # Base jetable, détruite à la fin du job : l'accès sans mot de passe évite un secret.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: attrition_test
+          POSTGRES_USER: attrition
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U attrition -d attrition_test"
+          --health-interval 5s
+          --health-retries 10
     env:
       APP_ENV: ${{ vars.APP_ENV }}
+      TEST_DATABASE_URL: postgresql+psycopg://attrition@127.0.0.1:5432/attrition_test
     steps:
       - uses: actions/checkout@v7
 
@@ -51,7 +66,7 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Lancer les tests avec couverture
+      - name: Lancer les tests avec couverture sur PostgreSQL
         run: uv run --locked pytest --cov-report=html --cov-report=xml
 
       - name: Contrôler la configuration de l'environnement de test
@@ -64,6 +79,16 @@ jobs:
           path: |
             htmlcov/
             coverage.xml
+
+  image:
+    name: Image Docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Construire l'image de l'API
+        run: docker build --tag futurisys-attrition-api:ci .
 
   secrets:
     name: Secrets
