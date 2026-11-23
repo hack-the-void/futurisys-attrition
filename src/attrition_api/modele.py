@@ -1,11 +1,8 @@
-"""Chargement de l'artefact et calcul des probabilités de départ."""
+"""Chargement du modèle et calcul des probabilités de départ."""
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import joblib
 import pandas as pd
@@ -18,46 +15,33 @@ FICHIER_METADONNEES = DOSSIER_ARTEFACTS / "modele_attrition.json"
 
 
 class ArtefactInvalide(RuntimeError):
-    """Le fichier du modèle ne correspond pas à ses métadonnées."""
+    pass
 
 
-@dataclass(frozen=True)
 class ModeleAttrition:
-    estimateur: Any
-    metadonnees: dict[str, Any]
+    def __init__(self, estimateur, metadonnees: dict):
+        self.estimateur = estimateur
+        self.metadonnees = metadonnees
+        self.version = metadonnees["version"]
+        self.seuil = metadonnees["seuil"]
 
-    @property
-    def version(self) -> str:
-        return self.metadonnees["version"]
-
-    @property
-    def seuil(self) -> float:
-        return self.metadonnees["seuil"]
-
-    def predire(self, employes: Sequence[Mapping[str, Any]]) -> list[float]:
-        """Renvoie la probabilité de départ de chaque employé, dans l'ordre reçu."""
+    def predire(self, employes: list[dict]) -> list[float]:
         X = construire_features(
-            pd.DataFrame(list(employes)),
+            pd.DataFrame(employes),
             self.metadonnees["medianes_salaire_poste"],
             self.metadonnees["colonnes"],
         )
-        # Le modèle accepte les valeurs manquantes : une erreur d'entrée passerait inaperçue.
+        # Le modèle accepte les NaN sans erreur, donc on vérifie avant.
         if X.isna().any().any():
             manquantes = X.columns[X.isna().any()].tolist()
             raise ValueError(f"Variables non calculables : {manquantes}")
         return self.estimateur.predict_proba(X)[:, 1].tolist()
 
 
-def charger_modele(
-    fichier_modele: Path = FICHIER_MODELE, fichier_metadonnees: Path = FICHIER_METADONNEES
-) -> ModeleAttrition:
-    """Charge le modèle après avoir vérifié son empreinte.
-
-    joblib exécute du code au chargement : on n'ouvre que le fichier dont l'empreinte SHA-256
-    correspond à celle enregistrée à l'export.
-    """
-    metadonnees = json.loads(fichier_metadonnees.read_text(encoding="utf-8"))
-    empreinte = hashlib.sha256(fichier_modele.read_bytes()).hexdigest()
+def charger_modele(fichier_modele=FICHIER_MODELE, fichier_metadonnees=FICHIER_METADONNEES):
+    metadonnees = json.loads(Path(fichier_metadonnees).read_text(encoding="utf-8"))
+    # joblib exécute du code au chargement : on vérifie d'abord l'empreinte du fichier.
+    empreinte = hashlib.sha256(Path(fichier_modele).read_bytes()).hexdigest()
     if empreinte != metadonnees["sha256_modele"]:
-        raise ArtefactInvalide(f"Empreinte inattendue pour {fichier_modele.name}")
+        raise ArtefactInvalide(f"Empreinte inattendue pour {Path(fichier_modele).name}")
     return ModeleAttrition(joblib.load(fichier_modele), metadonnees)
