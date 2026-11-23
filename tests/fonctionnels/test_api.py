@@ -105,7 +105,7 @@ def test_infos_modele(client):
 
 @pytest.mark.parametrize(
     ("profil", "risque_attendu"),
-    [("profil_a_risque", True), ("profil_stable", False), ("premier_emploi", True)],
+    [("depart", True), ("stable", False), ("premier_emploi", True)],
 )
 def test_prediction(client, exemples, profil, risque_attendu):
     exemple = exemples[profil]

@@ -14,14 +14,14 @@ def construire(*employes):
 
 
 def test_colonnes_dans_l_ordre_du_modele(exemples):
-    X = construire(exemples["profil_stable"]["entree"])
+    X = construire(exemples["stable"]["entree"])
     assert list(X.columns) == COLONNES
     assert len(COLONNES) == 44
     assert not X.isna().any().any()
 
 
 def test_ratio_salaire_utilise_la_mediane_figee(exemples):
-    employe = exemples["profil_stable"]["entree"]
+    employe = exemples["stable"]["entree"]
     X = construire(employe)
     # Recalculée sur un seul employé, la médiane donnerait toujours un ratio de 1.
     attendu = employe["revenu_mensuel"] / MEDIANES[employe["poste"]]
@@ -43,9 +43,9 @@ def test_premier_emploi_sans_division_par_zero(exemples):
 
 
 def test_encodage_des_variables_qualitatives(exemples):
-    X = construire(exemples["profil_a_risque"]["entree"])
+    X = construire(exemples["depart"]["entree"])
     ligne = X.loc[0]
-    assert ligne["genre"] == 1
+    assert ligne["genre"] == 0
     assert ligne["heure_supplementaires"] == 1
     assert ligne["frequence_deplacement"] == 2
     assert ligne["poste_Représentant Commercial"] == 1
@@ -55,7 +55,7 @@ def test_encodage_des_variables_qualitatives(exemples):
 
 
 def test_satisfaction_moyenne(exemples):
-    employe = exemples["profil_stable"]["entree"]
+    employe = exemples["stable"]["entree"]
     X = construire(employe)
     notes = [v for k, v in employe.items() if k.startswith("satisfaction_employee_")]
     assert X.loc[0, "satisfaction_moyenne"] == pytest.approx(sum(notes) / 4)

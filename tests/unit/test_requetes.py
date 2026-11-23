@@ -24,7 +24,7 @@ def moteur(url_base, exemples):
     moteur = creer_moteur(url_base)
     modele = charger_modele()
     with Session(moteur) as session:
-        importer_employes(session, charger_donnees_brutes(DOSSIER_SOURCES), ids_test={3})
+        importer_employes(session, charger_donnees_brutes(DOSSIER_SOURCES), ids_test={478})
         predire_dataset(session, modele)
         enregistrer_modele(session, modele)
         for exemple in exemples.values():
@@ -56,7 +56,7 @@ def test_synthese(moteur):
 
 
 def test_performances_test_recalculees_depuis_la_base(moteur):
-    # Seul l'employé 3 est en test : il est parti et le modèle l'a signalé.
+    # Seul l'employé 478 est en test : il est parti et le modèle l'a signalé.
     with moteur.connect() as connexion:
         [ligne] = connexion.execute(text(REQUETES["performances_test"])).mappings().all()
     assert (ligne["employes"], ligne["departs"], ligne["vrais_positifs"]) == (1, 1, 1)

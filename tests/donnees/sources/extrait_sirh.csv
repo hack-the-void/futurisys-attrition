@@ -1,4 +1,4 @@
 id_employee,age,genre,revenu_mensuel,statut_marital,departement,poste,nombre_experiences_precedentes,nombre_heures_travailless,annee_experience_totale,annees_dans_l_entreprise,annees_dans_le_poste_actuel
-1,45,F,9800,Marié(e),Consulting,Manager,1,80,20,15,7
-2,18,F,1500,Célibataire,Consulting,Consultant,0,80,0,0,0
-3,26,M,2300,Célibataire,Commercial,Représentant Commercial,4,80,5,1,1
+478,21,F,2174,Célibataire,Commercial,Représentant Commercial,1,80,3,3,2
+734,41,M,19189,Marié(e),Ressources Humaines,Senior Manager,1,80,22,22,7
+1839,18,F,1514,Célibataire,Consulting,Assistant de Direction,1,80,0,0,0

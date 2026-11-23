@@ -142,7 +142,6 @@ décrits dans
 ```bash
 uv run python scripts/importer_dataset.py --source ../technova-attrition  # 1 470 employés
 uv run python scripts/interroger_db.py performances_test
-uv run python scripts/envoyer_employes.py db/exemples/employes_fictifs.csv  # 50 appels
 ```
 
 ## Authentification et sécurité
@@ -162,8 +161,8 @@ uv run python scripts/envoyer_employes.py db/exemples/employes_fictifs.csv  # 50
   par SQLAlchemy, avec des paramètres liés, ce qui écarte les injections SQL. Le conteneur
   de l'API tourne sans privilèges root.
 - **Données :** l'artefact versionné ne contient aucune donnée RH, et le dataset reste hors
-  de Git. Seul l'exemple de Swagger reprend un employé du jeu de test (le n° 478). Les autres
-  exemples des tests et de la base sont fictifs.
+  de Git. Seuls trois employés du jeu de test (478, 734 et 1839) sont versionnés : ils
+  servent d'exemple dans Swagger et de références dans les tests.
 
 ## Travailler sur le dépôt
 
