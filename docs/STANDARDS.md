@@ -10,7 +10,7 @@
   résoudre les conflits et relancer les tests avant de pousser sans force.
 - Garder la version du paquet et le tag `vX.Y.Z` cohérents. Le projet reste en `0.x`
   pendant le POC. Voir [la procédure de livraison](CI_CD.md#publier-une-version).
-- Utiliser Python 3.12, Ruff et pytest. Garder au moins 80 % de couverture. Les tests
+- Utiliser Python 3.12, Ruff et pytest. Garder au moins 90 % de couverture. Les tests
   doivent passer avec ou sans un fichier `.env` local.
 
 ## Entraînement et évaluation

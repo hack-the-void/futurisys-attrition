@@ -68,10 +68,17 @@ jobs:
       - name: Lancer les tests avec couverture sur PostgreSQL
         run: uv run --locked pytest --cov-report=html --cov-report=xml
 
+      - name: Afficher la couverture dans le résumé du job
+        if: ${{ !cancelled() }}
+        run: |
+          echo "## Couverture des tests" >> "$GITHUB_STEP_SUMMARY"
+          uv run --locked coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
       - name: Contrôler la configuration de l'environnement de test
         run: uv run --locked python -m attrition_api.config
 
       - name: Conserver le rapport de couverture
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: rapport-couverture

@@ -6,8 +6,9 @@ aux contrôles obligatoires de la protection de `main`.
 
 - **Lint** exécute Ruff et vérifie que les exports `requirements*.txt` correspondent à `uv.lock`.
 - **Tests** démarre un service PostgreSQL 17 jetable et y lance pytest, avec une couverture
-  minimale de 80 %. Il vérifie ensuite la configuration avec `APP_ENV=test`. Le rapport HTML
-  et XML est disponible dans les artefacts du job.
+  minimale de 90 %. Il vérifie ensuite la configuration avec `APP_ENV=test`. Le tableau de
+  couverture s'affiche dans le résumé du job, et le rapport HTML et XML est dans l'artefact
+  `rapport-couverture`.
 - **Image Docker** construit l'image de l'API, pour détecter tôt un `Dockerfile` cassé.
 - **Secrets** lance Gitleaks sur les commits envoyés. GitHub bloque aussi l'envoi des secrets
   qu'il reconnaît.
@@ -38,9 +39,10 @@ Seul le job de publication dispose de `contents: write`, pour créer la release 
 
 [cd.yml](../.github/workflows/cd.yml) se déclenche sur un tag `vX.Y.Z`. Il vérifie que le
 commit appartient à `main` et que le tag correspond à la version dans `pyproject.toml`.
-Il lance les tests et construit le paquet. Le job de publication passe ensuite par
-l'environnement GitHub `production`, réservé aux tags `v*`. Il contrôle les secrets puis
-joint le paquet à une GitHub Release. Le déploiement de l'API se fait en local avec Docker
+Il lance les tests sur un PostgreSQL jetable et construit le paquet. Le job de publication
+passe ensuite par l'environnement GitHub `production`, réservé aux tags `v*`. Il contrôle
+les secrets puis joint à une GitHub Release le paquet et le rapport de couverture HTML du
+commit livré. Le déploiement de l'API se fait en local avec Docker
 Compose, comme la mission l'autorise (voir le README).
 
 Préparer la version sur une branche, puis ouvrir une PR.

@@ -39,8 +39,11 @@ addopts = "--cov=attrition_api --cov-report=term-missing"
 branch = true
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 90
 exclude_also = ['if __name__ == "__main__":']
+
+[tool.coverage.html]
+title = "Futurisys – couverture des tests"
 
 [tool.ruff]
 line-length = 100
