@@ -1,4 +1,4 @@
-"""Exécute une requête de db/requetes.sql sur la base définie par DATABASE_URL.
+"""Exécute une requête de db/requetes.sql (en lecture seule) avec ADMIN_DATABASE_URL.
 
 Usage :
     uv run python scripts/interroger_db.py --liste
@@ -39,10 +39,12 @@ def main() -> int:
         return 0
 
     settings = Settings()
-    if settings.database_url is None:
-        print("DATABASE_URL n'est pas définie.", file=sys.stderr)
+    # Le rôle de l'API ne peut pas lire le dataset : les analyses passent par le propriétaire.
+    url = settings.url_admin()
+    if url is None:
+        print("ADMIN_DATABASE_URL ou DATABASE_URL doit être définie.", file=sys.stderr)
         return 1
-    moteur = creer_moteur(settings.database_url.get_secret_value())
+    moteur = creer_moteur(url.get_secret_value())
     with moteur.connect() as connexion:
         resultat = pd.read_sql(text(requetes[args.requete]), connexion)
     moteur.dispose()

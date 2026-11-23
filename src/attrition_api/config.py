@@ -1,4 +1,4 @@
-"""Configuration chargée depuis l'environnement et le fichier .env local."""
+"""Configuration lue dans les variables d'environnement et le fichier .env."""
 
 import sys
 from enum import StrEnum
@@ -19,48 +19,50 @@ class Environnement(StrEnum):
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-        hide_input_in_errors=True,  # Masque les valeurs reçues dans les erreurs.
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", hide_input_in_errors=True
     )
 
-    # APP_ENV est obligatoire pour éviter de basculer en dev si la variable manque.
+    # Pas de valeur par défaut : on ne veut pas tourner en dev par oubli.
     app_env: Environnement
     api_key: SecretStr | None = None
+    # Compte de l'API (lecture et ajout seulement).
     database_url: SecretStr | None = None
+    # Compte propriétaire : création des tables, des droits et import du dataset.
+    admin_database_url: SecretStr | None = None
+    # Mot de passe donné au compte de l'API par create_db --roles.
+    api_db_password: SecretStr | None = None
 
     @model_validator(mode="after")
-    def _exiger_les_secrets_en_prod(self) -> Self:
+    def verifier_prod(self) -> Self:
         if self.app_env is not Environnement.PROD:
             return self
 
         cle = self.api_key.get_secret_value() if self.api_key else ""
         url = self.database_url.get_secret_value() if self.database_url else ""
-
-        problemes = []
+        erreurs = []
         if len(cle) < LONGUEUR_MIN_CLE_API or VALEUR_EXEMPLE in cle:
-            problemes.append(
+            erreurs.append(
                 f"API_KEY doit faire au moins {LONGUEUR_MIN_CLE_API} caractères "
                 "et ne pas être la valeur d'exemple"
             )
         if not url.startswith("postgresql") or VALEUR_EXEMPLE in url:
-            problemes.append(
+            erreurs.append(
                 "DATABASE_URL doit être une URL PostgreSQL et ne pas être la valeur d'exemple"
             )
-        if problemes:
-            raise ValueError(" ; ".join(problemes))
+        if erreurs:
+            raise ValueError(" ; ".join(erreurs))
         return self
+
+    def url_admin(self) -> SecretStr | None:
+        return self.admin_database_url or self.database_url
 
 
 def main() -> int:
-    """Valide la configuration et affiche l'environnement actif."""
     try:
         settings = Settings()
     except ValidationError as erreur:
         print(f"Configuration invalide :\n{erreur}", file=sys.stderr)
         return 1
-
     print(f"Configuration valide pour l'environnement : {settings.app_env.value}")
     return 0
 

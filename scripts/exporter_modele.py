@@ -32,13 +32,13 @@ from sklearn.metrics import (
     recall_score,
 )
 
+from attrition_api.dataset import charger_donnees_brutes
 from attrition_api.features import construire_features
 from attrition_api.modele import DOSSIER_ARTEFACTS, FICHIER_METADONNEES, FICHIER_MODELE
 
 RACINE = Path(__file__).resolve().parents[1]
 FICHIER_EXEMPLES = RACINE / "tests" / "donnees" / "exemples_reference.json"
 VERSION_MODELE = "1.0.0"
-CIBLE = "a_quitte_l_entreprise"
 FICHIERS_DONNEES = ["extrait_sirh.csv", "extrait_eval.csv", "extrait_sondage.csv"]
 
 # Profils fictifs : ils servent d'exemples dans les tests et ne viennent pas des données RH.
@@ -129,28 +129,6 @@ EXEMPLES_FICTIFS = {
 
 def sha256(chemin: Path) -> str:
     return hashlib.sha256(chemin.read_bytes()).hexdigest()
-
-
-def charger_donnees_brutes(dossier: Path) -> pd.DataFrame:
-    """Rapproche les trois extraits comme `charger_donnees_centrales` du projet 4."""
-    sirh = pd.read_csv(dossier / "extrait_sirh.csv")
-    evals = pd.read_csv(dossier / "extrait_eval.csv")
-    sondage = pd.read_csv(dossier / "extrait_sondage.csv", dtype={"code_sondage": str})
-
-    evals["id_employee"] = evals.pop("eval_number").str.split("_").str[-1].astype(int)
-    evals["heure_supplementaires"] = evals["heure_supplementaires"].str.strip().eq("Oui")
-    evals["augementation_salaire_precedente"] = (
-        evals["augementation_salaire_precedente"].str.replace("%", "").str.strip().astype(float)
-    )
-    sondage["id_employee"] = sondage.pop("code_sondage").astype(int)
-    sondage[CIBLE] = sondage[CIBLE].str.strip().eq("Oui").astype(int)
-
-    return (
-        sirh.merge(evals, on="id_employee", validate="one_to_one")
-        .merge(sondage, on="id_employee", validate="one_to_one")
-        .set_index("id_employee")
-        .sort_index()
-    )
 
 
 def resultats_test(y, probas, seuil: float) -> dict:

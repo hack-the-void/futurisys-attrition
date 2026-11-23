@@ -4,7 +4,7 @@
 
 Ce dépôt reprend le modèle du projet 4 du parcours Data Scientist d'OpenClassrooms.
 Une API FastAPI le sert pour estimer le risque de démission d'un employé, et chaque
-prédiction est enregistrée dans PostgreSQL. Le projet est un POC déployé en local avec
+prédiction est enregistrée dans PostgreSQL, avec le dataset complet du projet 4. Le projet est un POC déployé en local avec
 Docker Compose, comme la mission l'autorise.
 
 ## Le modèle
@@ -67,8 +67,10 @@ définies dans le terminal priment sur celles du fichier. `.env` est ignoré par
 | --- | --- |
 | `APP_ENV` | Obligatoire. Utiliser `dev` en local, `test` en CI et `prod` pour la livraison. |
 | `API_KEY` | Clé attendue dans l'en-tête `X-API-Key`. En `prod`, au moins 32 caractères. |
-| `POSTGRES_PASSWORD` | Mot de passe du conteneur PostgreSQL de `docker-compose.yml`. |
-| `DATABASE_URL` | URL PostgreSQL, obligatoire pour démarrer l'API. |
+| `POSTGRES_PASSWORD` | Mot de passe du compte propriétaire, créé par `docker-compose.yml`. |
+| `API_DB_PASSWORD` | Mot de passe du rôle `api_attrition`, limité à la lecture et à l'ajout. |
+| `DATABASE_URL` | URL PostgreSQL de l'API, avec le rôle `api_attrition`. Obligatoire pour démarrer l'API. |
+| `ADMIN_DATABASE_URL` | URL du compte propriétaire, pour créer les tables et importer le dataset. |
 
 Le contrôle de production refuse les valeurs d'exemple. La commande affiche l'environnement
 ou l'erreur de validation en masquant les valeurs saisies. Pour générer une clé, lancer
@@ -77,7 +79,7 @@ ou l'erreur de validation en masquant les valeurs saisies. Pour générer une cl
 ## Déployer en local
 
 Avec [Docker](https://docs.docker.com/get-docker/), une seule commande lance PostgreSQL 17
-et l'API. Les tables sont créées au premier démarrage.
+et l'API. Le service `init-db` crée les tables et le rôle de l'API avant qu'elle démarre.
 
 ```bash
 docker compose up -d --build
@@ -87,7 +89,7 @@ Pour développer, on peut aussi lancer la base seule et l'API avec uv.
 
 ```bash
 docker compose up -d db
-uv run --locked python -m attrition_api.create_db
+uv run --locked python -m attrition_api.create_db --roles
 uv run --locked uvicorn attrition_api.main:app --reload
 ```
 
@@ -131,14 +133,16 @@ incohérentes (par exemple plus d'ancienneté que d'expérience). Elle n'est pas
 
 ## Base de données
 
-Trois tables : `modeles`, `entrees` (les 25 champs reçus) et `predictions`. Le schéma, les
-choix de conception et les requêtes sont décrits dans
+Quatre tables : `employes` (le dataset complet), `modeles`, `entrees` (les 25 champs envoyés
+au modèle) et `predictions`. Le schéma, les droits d'accès, l'import et les requêtes sont
+décrits dans
 [docs/BASE_DE_DONNEES.md](docs/BASE_DE_DONNEES.md). Le script SQL est dans
 [db/schema.sql](db/schema.sql).
 
 ```bash
+uv run python scripts/importer_dataset.py --source ../technova-attrition  # 1 470 employés
+uv run python scripts/interroger_db.py performances_test
 uv run python scripts/envoyer_employes.py db/exemples/employes_fictifs.csv  # 50 appels
-uv run python scripts/interroger_db.py alertes_par_poste
 ```
 
 ## Authentification et sécurité
@@ -153,18 +157,21 @@ uv run python scripts/interroger_db.py alertes_par_poste
 - **Modèle :** joblib exécute du code au chargement. L'API ne charge le fichier que si son
   empreinte SHA-256 correspond à celle des métadonnées. Cela protège contre un fichier
   corrompu ou remplacé seul, mais pas contre une modification du dépôt lui-même.
-- **Base :** les requêtes passent par SQLAlchemy, avec des paramètres liés, ce qui écarte
-  les injections SQL. Le conteneur de l'API tourne sans privilèges root.
-- **Données :** l'artefact versionné ne contient aucune donnée RH. Les exemples des tests et
-  de la base sont des profils fictifs.
+- **Base :** l'API se connecte avec un rôle qui ne peut que lire et ajouter des
+  prédictions : ni modification, ni suppression, ni accès au dataset. Les requêtes passent
+  par SQLAlchemy, avec des paramètres liés, ce qui écarte les injections SQL. Le conteneur
+  de l'API tourne sans privilèges root.
+- **Données :** l'artefact versionné ne contient aucune donnée RH, et le dataset reste hors
+  de Git. Seul l'exemple de Swagger reprend un employé du jeu de test (le n° 478). Les autres
+  exemples des tests et de la base sont fictifs.
 
 ## Travailler sur le dépôt
 
 | Dossier | Contenu |
 | --- | --- |
-| [src/attrition_api/](src/attrition_api/) | `config.py` (configuration), `features.py` (calcul des variables), `modele.py` (chargement et prédiction), `schemas.py` (validation), `securite.py` (clé d'API), `db.py` (tables), `create_db.py` (création de la base), `main.py` (routes) |
+| [src/attrition_api/](src/attrition_api/) | `config.py` (configuration), `features.py` (calcul des variables), `modele.py` (chargement et prédiction), `schemas.py` (validation), `securite.py` (clé d'API), `db.py` (tables), `create_db.py` (création de la base), `acces.py` (rôle de l'API), `dataset.py` (import du dataset), `main.py` (routes) |
 | [tests/](tests/) | Tests unitaires dans `unit/`, tests de l'API dans `fonctionnels/` |
-| [scripts/](scripts/) | Export du modèle, génération et envoi des exemples, requêtes sur la base |
+| [scripts/](scripts/) | Export du modèle, import du dataset, génération et envoi des exemples, requêtes sur la base |
 | [db/](db/) | Script SQL, requêtes nommées et exemples |
 | [docs/](docs/) | Conventions, pipeline CI/CD et base de données |
 

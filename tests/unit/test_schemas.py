@@ -43,9 +43,9 @@ def test_champ_inconnu_refuse():
     [
         ({"age": 20, "annee_experience_totale": 20}, "annee_experience_totale < age"),
         ({"annees_dans_l_entreprise": 6}, "annees_dans_l_entreprise <= annee_experience_totale"),
-        ({"annees_dans_le_poste_actuel": 2}, "annees_dans_le_poste_actuel <= annees_dans_l"),
-        ({"annes_sous_responsable_actuel": 2}, "annes_sous_responsable_actuel <= annees_dans_l"),
-        ({"annees_depuis_la_derniere_promotion": 2}, "annees_depuis_la_derniere_promotion <="),
+        ({"annees_dans_le_poste_actuel": 4}, "annees_dans_le_poste_actuel <= annees_dans_l"),
+        ({"annes_sous_responsable_actuel": 4}, "annes_sous_responsable_actuel <= annees_dans_l"),
+        ({"annees_depuis_la_derniere_promotion": 4}, "annees_depuis_la_derniere_promotion <="),
     ],
 )
 def test_durees_incoherentes_refusees(modifications, regle):

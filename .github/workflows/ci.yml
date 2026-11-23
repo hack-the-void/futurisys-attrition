@@ -42,7 +42,6 @@ jobs:
       name: test
       deployment: false # Les tests ne créent pas de déploiement.
     services:
-      # Base jetable, détruite à la fin du job : l'accès sans mot de passe évite un secret.
       postgres:
         image: postgres:17-alpine
         env:

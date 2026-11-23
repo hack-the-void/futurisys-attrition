@@ -1,4 +1,3 @@
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -15,7 +14,7 @@ from attrition_api.db import (
     enregistrer_prediction,
     lister_predictions,
 )
-from attrition_api.modele import charger_modele
+from attrition_api.modele import ModeleAttrition, charger_modele
 from attrition_api.schemas import EXEMPLE_EMPLOYE, Employe
 
 SCHEMA_SQL = Path(__file__).resolve().parents[2] / "db" / "schema.sql"
@@ -82,7 +81,7 @@ def test_enregistrer_modele_deux_fois_sans_doublon(session, modele):
 
 
 def test_meme_version_avec_un_autre_fichier_refusee(session, modele):
-    autre = replace(modele, metadonnees=modele.metadonnees | {"sha256_modele": "0" * 64})
+    autre = ModeleAttrition(modele.estimateur, modele.metadonnees | {"sha256_modele": "0" * 64})
     with pytest.raises(RuntimeError, match="déjà enregistrée"):
         enregistrer_modele(session, autre)
 
@@ -106,13 +105,35 @@ def test_create_db_sans_url(monkeypatch):
     assert main([]) == 1
 
 
+def test_create_db_roles_sans_mot_de_passe(monkeypatch, url_base):
+    monkeypatch.setenv("APP_ENV", "dev")
+    monkeypatch.setenv("ADMIN_DATABASE_URL", url_base)
+    assert main(["--roles"]) == 1
+
+
+def test_create_db_utilise_le_compte_proprietaire(monkeypatch, tmp_path):
+    # DATABASE_URL (compte de l'API) pointe ailleurs : seule l'URL admin doit servir.
+    url = f"sqlite:///{tmp_path / 'admin.db'}"
+    monkeypatch.setenv("APP_ENV", "dev")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'api.db'}")
+    monkeypatch.setenv("ADMIN_DATABASE_URL", url)
+    assert main([]) == 0
+    assert (tmp_path / "admin.db").exists()
+    assert not (tmp_path / "api.db").exists()
+
+
 def test_create_db_cree_les_tables(monkeypatch, tmp_path):
     url = f"sqlite:///{tmp_path / 'neuve.db'}"
     monkeypatch.setenv("APP_ENV", "dev")
     monkeypatch.setenv("DATABASE_URL", url)
     assert main([]) == 0
     moteur = creer_moteur(url)
-    assert set(inspect(moteur).get_table_names()) == {"modeles", "entrees", "predictions"}
+    assert set(inspect(moteur).get_table_names()) == {
+        "employes",
+        "modeles",
+        "entrees",
+        "predictions",
+    }
     moteur.dispose()
 
 

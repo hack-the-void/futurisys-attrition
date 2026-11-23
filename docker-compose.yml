@@ -1,15 +1,19 @@
-# Déploiement local : PostgreSQL et l'API.
+# Déploiement local : PostgreSQL, initialisation de la base, puis l'API.
 #   docker compose up -d --build   # tout
 #   docker compose up -d db        # la base seule, pour lancer l'API avec uv
 # Les valeurs viennent du fichier .env (voir .env.example).
 name: futurisys-attrition
+
+x-image-api: &image-api
+  build: .
+  image: futurisys-attrition-api
 
 services:
   db:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: attrition
-      POSTGRES_USER: attrition
+      POSTGRES_USER: attrition # Propriétaire : réservé à l'initialisation et à l'import.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définir POSTGRES_PASSWORD dans .env}
     ports:
       - "127.0.0.1:5432:5432" # Accessible depuis cette machine seulement.
@@ -20,15 +24,31 @@ services:
       interval: 5s
       retries: 10
 
-  api:
-    build: .
+  # Crée les tables et le rôle de l'API avec le compte propriétaire, puis s'arrête.
+  init-db:
+    <<: *image-api
     depends_on:
       db:
         condition: service_healthy
     environment:
       APP_ENV: ${APP_ENV:-dev}
+      API_KEY: ${API_KEY}
+      DATABASE_URL: postgresql+psycopg://api_attrition:${API_DB_PASSWORD}@db:5432/attrition
+      ADMIN_DATABASE_URL: postgresql+psycopg://attrition:${POSTGRES_PASSWORD}@db:5432/attrition
+      API_DB_PASSWORD: ${API_DB_PASSWORD:?Définir API_DB_PASSWORD dans .env}
+    command: ["python", "-m", "attrition_api.create_db", "--roles"]
+    restart: "no"
+
+  # L'API se connecte avec le rôle api_attrition : lecture et ajout, rien d'autre.
+  api:
+    <<: *image-api
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
       API_KEY: ${API_KEY:?Définir API_KEY dans .env}
-      DATABASE_URL: postgresql+psycopg://attrition:${POSTGRES_PASSWORD}@db:5432/attrition
+      DATABASE_URL: postgresql+psycopg://api_attrition:${API_DB_PASSWORD}@db:5432/attrition
     ports:
       - "127.0.0.1:8000:8000"
 

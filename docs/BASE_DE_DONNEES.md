@@ -1,14 +1,25 @@
 # Base de données
 
-L'API enregistre dans PostgreSQL chaque employé reçu et la prédiction calculée. On garde
-ainsi la trace de ce que le modèle a dit, sur quelles données et avec quelle version.
+La base contient le dataset complet du projet 4 (1 470 employés) et toutes les prédictions
+du modèle : celles calculées sur le dataset à l'import, et celles demandées à l'API. On garde
+ainsi la trace de ce que le modèle a dit, sur quelles données et avec quelle version, et on
+peut comparer ses alertes aux départs réels.
 
 ## Schéma
 
 ```mermaid
 erDiagram
+    employes |o--o{ entrees : "est envoyé en"
     modeles ||--o{ predictions : "calcule"
     entrees ||--o{ predictions : "reçoit"
+
+    employes {
+        int id PK "id_employee des extraits RH"
+        varchar jeu "train ou test"
+        bool a_quitte_l_entreprise "la cible"
+        varchar departement
+        int autres_champs "les 31 colonnes du dataset"
+    }
 
     modeles {
         varchar version PK "ex. 1.0.0"
@@ -22,7 +33,8 @@ erDiagram
     entrees {
         serial id PK
         timestamptz recue_le
-        varchar source "api ou script"
+        varchar source "api, script ou dataset"
+        int employe_id FK "rempli pour le dataset"
         int age
         varchar poste
         float revenu_mensuel
@@ -48,12 +60,17 @@ restent identiques.
 
 | Table | Une ligne par | Rôle |
 | --- | --- | --- |
+| `employes` | employé du dataset | Les trois extraits RH fusionnés, avec la cible et le jeu (`train` ou `test`) du projet 4. |
 | `modeles` | version de modèle servie | Ajoutée au démarrage de l'API. Garde le seuil, l'empreinte et les résultats du test. |
-| `entrees` | employé reçu | Les 25 champs RH validés par l'API, avec la date et l'origine de l'envoi. |
+| `entrees` | employé envoyé au modèle | Les 25 champs RH validés, avec la date et l'origine de l'envoi. Lien vers `employes` pour le dataset. |
 | `predictions` | calcul d'un modèle sur une entrée | Probabilité, seuil appliqué et alerte. |
 
 ## Choix de conception
 
+- **Dataset brut à part.** `employes` garde toutes les colonnes des extraits, y compris
+  celles que le modèle ignore (département, heures de travail...). `entrees` ne contient
+  que ce que le modèle reçoit, quelle que soit l'origine. Les prédictions du dataset et de
+  l'API se lisent donc avec les mêmes requêtes.
 - **Entrées et prédictions séparées.** Une entrée peut recevoir une prédiction par version
   de modèle (contrainte `UNIQUE (entree_id, version_modele)`). Après un nouvel entraînement,
   on peut recalculer l'historique et comparer les deux modèles sur les mêmes employés.
@@ -71,15 +88,48 @@ restent identiques.
 - **Index.** Ils portent sur les colonnes filtrées dans les requêtes d'exemple : date de
   réception, poste, alerte et version.
 
-## Créer la base
+## Accès
+
+Deux comptes PostgreSQL, chacun avec son mot de passe dans `.env` :
+
+| Compte | Variable | Droits | Utilisé par |
+| --- | --- | --- | --- |
+| `attrition` | `ADMIN_DATABASE_URL` | Propriétaire de la base | `create_db`, l'import du dataset, `interroger_db.py` |
+| `api_attrition` | `DATABASE_URL` | `SELECT` et `INSERT` sur `modeles`, `entrees` et `predictions` | L'API |
+
+L'API ne peut donc ni modifier ni supprimer une prédiction, ni lire la table `employes`
+(qui contient la cible), ni créer ou supprimer une table. Si elle était compromise, elle
+ne pourrait pas effacer l'historique. `PUBLIC` perd aussi ses droits par défaut sur la
+base. Les instructions `GRANT` sont dans [src/attrition_api/acces.py](../src/attrition_api/acces.py)
+et à la fin de [db/schema.sql](../db/schema.sql). Des tests se connectent avec ce rôle
+et vérifient chaque refus.
+
+## Créer la base et importer le dataset
 
 ```bash
-docker compose up -d db                     # PostgreSQL 17 dans un conteneur
-uv run python -m attrition_api.create_db    # crée les tables manquantes
+docker compose up -d db
+uv run python -m attrition_api.create_db --roles      # tables, rôle de l'API et droits
+uv run python scripts/importer_dataset.py --source ../technova-attrition
 ```
 
-`--reinitialiser` supprime puis recrée les tables. `--sql` affiche le script SQL sans
-l'exécuter. Le conteneur de l'API lance `create_db` avant de démarrer.
+`create_db` utilise le compte propriétaire. `--roles` crée `api_attrition` avec le mot de
+passe `API_DB_PASSWORD`, ou le met à jour. `--reinitialiser` supprime puis recrée les
+tables. `--sql` affiche le script SQL sans l'exécuter. Avec `docker compose up`, le service
+`init-db` lance `create_db --roles` avant l'API.
+
+L'import lit les trois CSV du projet 4 et prend la liste du jeu de test dans son artefact
+(`artefacts/modele_final.joblib`), qui restent hors de Git. Il insère les 1 470 employés,
+puis enregistre une prédiction du modèle pour chacun (source `dataset`). On peut le
+relancer : il remplace les données du dataset sans toucher aux appels de l'API.
+`--sans-predictions` n'insère que les employés.
+
+```text
+$ uv run python scripts/interroger_db.py performances_test
+version_modele  employes  departs  vrais_positifs  fausses_alertes  departs_manques  rappel
+         1.0.0       294       47              33               64               14   0.702
+```
+
+Recalculés depuis la base, les résultats sur le jeu de test sont ceux du projet 4.
 
 ## Exemples et requêtes
 
@@ -87,23 +137,26 @@ l'exécuter. Le conteneur de l'API lance `create_db` avant de démarrer.
 | --- | --- |
 | [db/exemples/employes_fictifs.csv](../db/exemples/employes_fictifs.csv) | 50 employés fictifs, générés par `scripts/generer_employes_fictifs.py` |
 | [db/exemples/predictions_fictives.csv](../db/exemples/predictions_fictives.csv) | Ces 50 entrées avec leur prédiction, exportées de la base |
-| [db/requetes.sql](../db/requetes.sql) | Requêtes nommées : dernières prédictions, synthèse, alertes par poste... |
+| [db/requetes.sql](../db/requetes.sql) | Requêtes nommées : synthèse, alertes par poste, performances sur le test, départs par département... |
 
 ```bash
 uv run python scripts/envoyer_employes.py db/exemples/employes_fictifs.csv
 uv run python scripts/interroger_db.py --liste
 uv run python scripts/interroger_db.py alertes_par_poste
+uv run python scripts/interroger_db.py departs_par_departement
 uv run python scripts/interroger_db.py export --csv predictions.csv
 ```
 
 Les profils fictifs sont tirés au hasard, de façon uniforme. Ils sont donc plus souvent à
 risque que de vrais employés : 27 alertes sur 50, contre une sur trois dans le jeu de test.
-Ces exemples montrent le fonctionnement de la chaîne. Ils ne mesurent pas la qualité du
-modèle.
+Ces exemples montrent le fonctionnement de la chaîne. La qualité du modèle se mesure sur
+le dataset importé (`performances_test`).
 
 ## Données personnelles
 
-La table `entrees` contient des données RH personnelles, dont le genre et le statut
-marital. En production, il faudrait restreindre l'accès à la base, fixer une durée de
-conservation et pouvoir supprimer un employé. La suppression d'une entrée supprime ses
-prédictions (`ON DELETE CASCADE`). Les profils versionnés dans ce dépôt sont fictifs.
+Les tables `employes` et `entrees` contiennent des données RH personnelles, dont le genre
+et le statut marital. La base ne tourne qu'en local, sur `127.0.0.1`, et l'API n'a pas
+accès à `employes`. En production, il faudrait aussi fixer une durée de conservation et
+pouvoir supprimer un employé. La suppression d'une entrée supprime ses prédictions
+(`ON DELETE CASCADE`). Le dataset n'est pas versionné : hors de l'exemple de Swagger, les
+profils de ce dépôt sont fictifs.

@@ -5,10 +5,12 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from attrition_api.dataset import charger_donnees_brutes, importer_employes, predire_dataset
 from attrition_api.db import creer_moteur, enregistrer_modele, enregistrer_prediction
 from attrition_api.modele import charger_modele
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "interroger_db.py"
+DOSSIER_SOURCES = Path(__file__).resolve().parents[1] / "donnees" / "sources"
 spec = importlib.util.spec_from_file_location("interroger_db", SCRIPT)
 interroger_db = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(interroger_db)
@@ -18,9 +20,12 @@ REQUETES = interroger_db.charger_requetes()
 
 @pytest.fixture
 def moteur(url_base, exemples):
+    """Base avec le mini-dataset prédit (source dataset) et trois appels (source script)."""
     moteur = creer_moteur(url_base)
     modele = charger_modele()
     with Session(moteur) as session:
+        importer_employes(session, charger_donnees_brutes(DOSSIER_SOURCES), ids_test={3})
+        predire_dataset(session, modele)
         enregistrer_modele(session, modele)
         for exemple in exemples.values():
             entree = exemple["entree"]
@@ -43,9 +48,19 @@ def test_chaque_requete_s_execute(moteur, nom):
 
 def test_synthese(moteur):
     with moteur.connect() as connexion:
-        [ligne] = connexion.execute(text(REQUETES["synthese"])).mappings().all()
-    assert ligne["predictions"] == 3
-    assert ligne["alertes"] == 2
+        lignes = connexion.execute(text(REQUETES["synthese"])).mappings().all()
+    assert {(ligne["source"], ligne["predictions"], ligne["alertes"]) for ligne in lignes} == {
+        ("dataset", 3, 2),
+        ("script", 3, 2),
+    }
+
+
+def test_performances_test_recalculees_depuis_la_base(moteur):
+    # Seul l'employé 3 est en test : il est parti et le modèle l'a signalé.
+    with moteur.connect() as connexion:
+        [ligne] = connexion.execute(text(REQUETES["performances_test"])).mappings().all()
+    assert (ligne["employes"], ligne["departs"], ligne["vrais_positifs"]) == (1, 1, 1)
+    assert ligne["rappel"] == 1
 
 
 def test_export_contient_entrees_et_sorties(moteur):

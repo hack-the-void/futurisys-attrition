@@ -22,5 +22,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
 
-# Crée les tables manquantes, puis démarre l'API.
-CMD ["sh", "-c", "python -m attrition_api.create_db && uvicorn attrition_api.main:app --host 0.0.0.0 --port 8000"]
+# Les tables et les rôles sont créés avant, par le service init-db de docker-compose.yml :
+# l'API n'a pas les droits pour le faire.
+CMD ["uvicorn", "attrition_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
