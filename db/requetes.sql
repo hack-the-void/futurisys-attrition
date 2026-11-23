@@ -83,7 +83,7 @@ GROUP BY emp.departement
 ORDER BY taux_depart_reel DESC;
 
 -- nom: export
--- Toutes les entrées avec leur prédiction : c'est le format de db/exemples/predictions_fictives.csv.
+-- Toutes les entrées avec leur prédiction, pour un export CSV.
 SELECT e.*, p.id AS id_prediction, p.version_modele, p.probabilite, p.seuil,
        p.risque_depart, p.calculee_le
 FROM entrees e

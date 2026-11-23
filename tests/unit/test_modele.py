@@ -41,7 +41,7 @@ def test_probabilites_de_reference(modele, exemples):
 
 def test_les_profils_de_reference_encadrent_le_seuil(modele, exemples):
     [a_risque, stable] = modele.predire(
-        [exemples["profil_a_risque"]["entree"], exemples["profil_stable"]["entree"]]
+        [exemples["depart"]["entree"], exemples["stable"]["entree"]]
     )
     assert a_risque >= modele.seuil > stable
 
@@ -61,6 +61,6 @@ def test_artefact_intact_accepte(tmp_path):
 
 def test_variable_non_calculable_refusee(modele, exemples):
     # Sans le schéma de l'API, un poste inconnu donnerait une médiane manquante.
-    entree = exemples["profil_stable"]["entree"] | {"poste": "Stagiaire"}
+    entree = exemples["stable"]["entree"] | {"poste": "Stagiaire"}
     with pytest.raises(ValueError, match="ratio_salaire_mediane_poste"):
         modele.predire([entree])

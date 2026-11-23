@@ -131,26 +131,18 @@ version_modele  employes  departs  vrais_positifs  fausses_alertes  departs_manq
 
 Recalculés depuis la base, les résultats sur le jeu de test sont ceux du projet 4.
 
-## Exemples et requêtes
+## Requêtes
 
-| Fichier | Contenu |
-| --- | --- |
-| [db/exemples/employes_fictifs.csv](../db/exemples/employes_fictifs.csv) | 50 employés fictifs, générés par `scripts/generer_employes_fictifs.py` |
-| [db/exemples/predictions_fictives.csv](../db/exemples/predictions_fictives.csv) | Ces 50 entrées avec leur prédiction, exportées de la base |
-| [db/requetes.sql](../db/requetes.sql) | Requêtes nommées : synthèse, alertes par poste, performances sur le test, départs par département... |
+[db/requetes.sql](../db/requetes.sql) contient des requêtes nommées : synthèse, alertes par
+poste, performances sur le test, départs par département... Elles portent sur le dataset
+importé et sur les appels reçus par l'API.
 
 ```bash
-uv run python scripts/envoyer_employes.py db/exemples/employes_fictifs.csv
 uv run python scripts/interroger_db.py --liste
 uv run python scripts/interroger_db.py alertes_par_poste
 uv run python scripts/interroger_db.py departs_par_departement
 uv run python scripts/interroger_db.py export --csv predictions.csv
 ```
-
-Les profils fictifs sont tirés au hasard, de façon uniforme. Ils sont donc plus souvent à
-risque que de vrais employés : 27 alertes sur 50, contre une sur trois dans le jeu de test.
-Ces exemples montrent le fonctionnement de la chaîne. La qualité du modèle se mesure sur
-le dataset importé (`performances_test`).
 
 ## Données personnelles
 
@@ -158,5 +150,6 @@ Les tables `employes` et `entrees` contiennent des données RH personnelles, don
 et le statut marital. La base ne tourne qu'en local, sur `127.0.0.1`, et l'API n'a pas
 accès à `employes`. En production, il faudrait aussi fixer une durée de conservation et
 pouvoir supprimer un employé. La suppression d'une entrée supprime ses prédictions
-(`ON DELETE CASCADE`). Le dataset n'est pas versionné : hors de l'exemple de Swagger, les
-profils de ce dépôt sont fictifs.
+(`ON DELETE CASCADE`). Le dataset n'est pas versionné. Seuls trois employés du jeu de test
+(478, 734 et 1839) sont dans le dépôt : ils servent d'exemple dans Swagger et de références
+dans les tests.

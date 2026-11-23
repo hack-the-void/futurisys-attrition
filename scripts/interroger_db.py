@@ -3,7 +3,7 @@
 Usage :
     uv run python scripts/interroger_db.py --liste
     uv run python scripts/interroger_db.py alertes_par_poste
-    uv run python scripts/interroger_db.py export --csv db/exemples/predictions_fictives.csv
+    uv run python scripts/interroger_db.py export --csv predictions.csv
 """
 
 import argparse

@@ -9,8 +9,6 @@ from attrition_api.create_db import creer_tables
 from attrition_api.db import creer_moteur
 
 DOSSIER_DONNEES = Path(__file__).resolve().parent / "donnees"
-# Trois employés fictifs au format des extraits RH, sur les profils de exemples_reference.json.
-DOSSIER_SOURCES = DOSSIER_DONNEES / "sources"
 # En CI, TEST_DATABASE_URL pointe vers un service PostgreSQL. Sinon, SQLite suffit en local.
 URL_BASE_TEST = os.environ.get("TEST_DATABASE_URL")
 VARIABLES = (
@@ -37,7 +35,7 @@ def environnement_isole(monkeypatch, tmp_path):
 
 @pytest.fixture(scope="session")
 def exemples():
-    """Profils fictifs et probabilités calculées par scripts/exporter_modele.py."""
+    """Employés 478, 734 et 1839 et probabilités calculées par scripts/exporter_modele.py."""
     return json.loads((DOSSIER_DONNEES / "exemples_reference.json").read_text(encoding="utf-8"))
 
 

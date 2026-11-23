@@ -6,7 +6,7 @@ poste, et décrit le tout dans un fichier JSON lisible.
 
 Avant d'écrire, il vérifie que `attrition_api.features` reconstruit exactement les variables
 d'entraînement et de test à partir des trois extraits CSV, et que les résultats du test sont
-inchangés.
+inchangés. Il écrit aussi les trois employés de référence utilisés par les tests.
 
 Usage :
     uv run python scripts/exporter_modele.py --source ../../technova-attrition
@@ -35,96 +35,16 @@ from sklearn.metrics import (
 from attrition_api.dataset import charger_donnees_brutes
 from attrition_api.features import construire_features
 from attrition_api.modele import DOSSIER_ARTEFACTS, FICHIER_METADONNEES, FICHIER_MODELE
+from attrition_api.schemas import Employe
 
 RACINE = Path(__file__).resolve().parents[1]
-FICHIER_EXEMPLES = RACINE / "tests" / "donnees" / "exemples_reference.json"
+DOSSIER_TESTS = RACINE / "tests" / "donnees"
+FICHIER_EXEMPLES = DOSSIER_TESTS / "exemples_reference.json"
 VERSION_MODELE = "1.0.0"
 FICHIERS_DONNEES = ["extrait_sirh.csv", "extrait_eval.csv", "extrait_sondage.csv"]
 
-# Profils fictifs : ils servent d'exemples dans les tests et ne viennent pas des données RH.
-EXEMPLES_FICTIFS = {
-    "profil_a_risque": {
-        "age": 26,
-        "genre": "M",
-        "revenu_mensuel": 2300,
-        "statut_marital": "Célibataire",
-        "poste": "Représentant Commercial",
-        "nombre_experiences_precedentes": 4,
-        "annee_experience_totale": 5,
-        "annees_dans_l_entreprise": 1,
-        "annees_dans_le_poste_actuel": 1,
-        "satisfaction_employee_environnement": 1,
-        "note_evaluation_precedente": 2,
-        "satisfaction_employee_nature_travail": 1,
-        "satisfaction_employee_equipe": 2,
-        "satisfaction_employee_equilibre_pro_perso": 1,
-        "note_evaluation_actuelle": 3,
-        "heure_supplementaires": True,
-        "augementation_salaire_precedente": 11,
-        "nombre_participation_pee": 0,
-        "nb_formations_suivies": 1,
-        "distance_domicile_travail": 24,
-        "niveau_education": 2,
-        "domaine_etude": "Marketing",
-        "frequence_deplacement": "Frequent",
-        "annees_depuis_la_derniere_promotion": 0,
-        "annes_sous_responsable_actuel": 0,
-    },
-    "profil_stable": {
-        "age": 45,
-        "genre": "F",
-        "revenu_mensuel": 9800,
-        "statut_marital": "Marié(e)",
-        "poste": "Manager",
-        "nombre_experiences_precedentes": 1,
-        "annee_experience_totale": 20,
-        "annees_dans_l_entreprise": 15,
-        "annees_dans_le_poste_actuel": 7,
-        "satisfaction_employee_environnement": 4,
-        "note_evaluation_precedente": 3,
-        "satisfaction_employee_nature_travail": 4,
-        "satisfaction_employee_equipe": 3,
-        "satisfaction_employee_equilibre_pro_perso": 3,
-        "note_evaluation_actuelle": 3,
-        "heure_supplementaires": False,
-        "augementation_salaire_precedente": 15,
-        "nombre_participation_pee": 2,
-        "nb_formations_suivies": 3,
-        "distance_domicile_travail": 5,
-        "niveau_education": 4,
-        "domaine_etude": "Infra & Cloud",
-        "frequence_deplacement": "Occasionnel",
-        "annees_depuis_la_derniere_promotion": 2,
-        "annes_sous_responsable_actuel": 6,
-    },
-    "premier_emploi": {
-        "age": 18,
-        "genre": "F",
-        "revenu_mensuel": 1500,
-        "statut_marital": "Célibataire",
-        "poste": "Consultant",
-        "nombre_experiences_precedentes": 0,
-        "annee_experience_totale": 0,
-        "annees_dans_l_entreprise": 0,
-        "annees_dans_le_poste_actuel": 0,
-        "satisfaction_employee_environnement": 3,
-        "note_evaluation_precedente": 3,
-        "satisfaction_employee_nature_travail": 3,
-        "satisfaction_employee_equipe": 3,
-        "satisfaction_employee_equilibre_pro_perso": 3,
-        "note_evaluation_actuelle": 3,
-        "heure_supplementaires": False,
-        "augementation_salaire_precedente": 13,
-        "nombre_participation_pee": 0,
-        "nb_formations_suivies": 2,
-        "distance_domicile_travail": 10,
-        "niveau_education": 1,
-        "domaine_etude": "Autre",
-        "frequence_deplacement": "Aucun",
-        "annees_depuis_la_derniere_promotion": 0,
-        "annes_sous_responsable_actuel": 0,
-    },
-}
+# Employés du jeu de test utilisés comme références dans les tests.
+EMPLOYES_REFERENCE = {"depart": 478, "stable": 734, "premier_emploi": 1839}
 
 
 def sha256(chemin: Path) -> str:
@@ -150,6 +70,41 @@ def en_json(valeur):
     if isinstance(valeur, np.generic):
         return valeur.item()
     raise TypeError(f"Type non sérialisable : {type(valeur)}")
+
+
+def ecrire_exemples(brut, modele, medianes, colonnes, ids_test):
+    ids = list(EMPLOYES_REFERENCE.values())
+    assert ids_test.issuperset(ids), "Les employés de référence doivent venir du jeu de test"
+    entrees = brut.loc[ids, list(Employe.model_fields)].astype(object)
+    probas = modele.predict_proba(construire_features(entrees, medianes, colonnes))[:, 1]
+    exemples = {
+        nom: {
+            "id_employee": id_employee,
+            "a_quitte_l_entreprise": bool(brut.loc[id_employee, "a_quitte_l_entreprise"]),
+            "entree": Employe(**entrees.loc[id_employee].to_dict()).model_dump(),
+            "probabilite_attendue": float(p),
+        }
+        for (nom, id_employee), p in zip(EMPLOYES_REFERENCE.items(), probas, strict=True)
+    }
+    FICHIER_EXEMPLES.write_text(
+        json.dumps(exemples, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def extraire_sources(dossier: Path, ids: list[int]):
+    # Les lignes brutes de ces employés, pour tester le chargement des trois CSV.
+    cles = {
+        "extrait_sirh.csv": "id_employee",
+        "extrait_eval.csv": "eval_number",
+        "extrait_sondage.csv": "code_sondage",
+    }
+    for fichier, colonne in cles.items():
+        df = pd.read_csv(dossier / fichier, dtype=str)
+        id_employee = df[colonne].str.split("_").str[-1].astype(int)
+        lignes = df[id_employee.isin(ids)]
+        lignes.to_csv(DOSSIER_TESTS / "sources" / fichier, index=False, lineterminator="\n")
 
 
 def main() -> None:
@@ -206,23 +161,11 @@ def main() -> None:
     FICHIER_METADONNEES.write_text(
         json.dumps(metadonnees, ensure_ascii=False, indent=2, default=en_json) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
-    exemples = pd.DataFrame.from_dict(EXEMPLES_FICTIFS, orient="index")
-    probas = modele.predict_proba(construire_features(exemples, medianes, colonnes))[:, 1]
-    FICHIER_EXEMPLES.parent.mkdir(parents=True, exist_ok=True)
-    FICHIER_EXEMPLES.write_text(
-        json.dumps(
-            {
-                nom: {"entree": entree, "probabilite_attendue": float(p)}
-                for (nom, entree), p in zip(EXEMPLES_FICTIFS.items(), probas, strict=True)
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    ecrire_exemples(brut, modele, medianes, colonnes, set(source["X_test"].index))
+    extraire_sources(args.source / "data", sorted(EMPLOYES_REFERENCE.values()))
     print(f"Artefact écrit dans {DOSSIER_ARTEFACTS.relative_to(RACINE)}")
 
 
