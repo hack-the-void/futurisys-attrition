@@ -1,6 +1,6 @@
 [project]
 name = "futurisys-attrition-api"
-version = "0.2.0"
+version = "0.3.0"
 description = "Projet Futurisys de prédiction de l'attrition des employés"
 readme = "README.md"
 authors = [{ name = "Benjamin Thery" }]
