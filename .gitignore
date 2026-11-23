@@ -25,6 +25,10 @@ data/
 *.joblib
 *.pkl
 *.pickle
+# Profils fictifs de démonstration, sans données RH.
+!db/exemples/*.csv
+# Modèle exporté sans données par scripts/exporter_modele.py.
+!src/attrition_api/artefacts/modele_attrition.joblib
 
 # Éditeurs et système
 .vscode/
