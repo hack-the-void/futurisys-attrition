@@ -112,8 +112,28 @@ class Employe(BaseModel):
         return self
 
 
+class EmployeResume(BaseModel):
+    id: int
+    age: int
+    genre: str
+    departement: str
+    poste: str
+
+
+class FicheEmploye(Employe):
+    """Un employé du dataset, tel que l'API le voit : sans son départ réel."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"id": 478, "departement": "Commercial"} | EXEMPLE_EMPLOYE]}
+    )
+
+    id: int
+    departement: str
+
+
 class Prediction(BaseModel):
     id_prediction: int
+    id_employe: int | None = Field(None, description="Employé du dataset, s'il a été choisi")
     probabilite_depart: float = Field(ge=0, le=1)
     risque_depart: bool
     seuil: float
@@ -124,6 +144,7 @@ class Prediction(BaseModel):
     def depuis_base(cls, ligne):
         return cls(
             id_prediction=ligne.id,
+            id_employe=ligne.entree.employe_id,
             probabilite_depart=ligne.probabilite,
             risque_depart=ligne.risque_depart,
             seuil=ligne.seuil,

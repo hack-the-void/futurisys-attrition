@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 from sqlalchemy import text
@@ -7,10 +8,18 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from attrition_api.acces import configurer_acces
-from attrition_api.db import creer_moteur, enregistrer_modele, enregistrer_prediction
+from attrition_api.dataset import charger_donnees_brutes, importer_employes
+from attrition_api.db import (
+    creer_moteur,
+    enregistrer_modele,
+    enregistrer_prediction,
+    lire_employe,
+    lister_employes,
+)
 from attrition_api.modele import charger_modele
 from attrition_api.schemas import EXEMPLE_EMPLOYE
 
+DOSSIER_SOURCES = Path(__file__).resolve().parents[1] / "donnees" / "sources"
 # Un rôle propre aux tests, pour ne pas changer le mot de passe du vrai rôle de l'API.
 ROLE_TEST = "api_attrition_test"
 MOT_DE_PASSE = "mot-de-passe-de-test"
@@ -29,10 +38,11 @@ def test_refuse_hors_postgresql(tmp_path):
 
 @pytest.fixture
 def moteur_api(url_base):
-    """Base avec une prédiction, et un moteur connecté avec le rôle de l'API."""
+    """Base avec trois employés et une prédiction, et un moteur connecté avec le rôle de l'API."""
     admin = creer_moteur(url_base)
     modele = charger_modele()
     with Session(admin) as session:
+        importer_employes(session, charger_donnees_brutes(DOSSIER_SOURCES), ids_test={478})
         enregistrer_modele(session, modele)
         enregistrer_prediction(session, EXEMPLE_EMPLOYE, 0.5, modele, source="api")
     # Deux passages : le second met à jour un rôle qui existe déjà.
@@ -56,12 +66,24 @@ def test_le_role_de_l_api_peut_lire_et_ajouter(moteur_api):
 
 
 @sous_postgresql
+def test_le_role_de_l_api_lit_les_employes_sans_leur_depart(moteur_api):
+    with Session(moteur_api) as session:
+        assert [e["id"] for e in lister_employes(session, limite=10)] == [478, 734, 1839]
+        fiche = lire_employe(session, 478)
+    assert fiche["poste"] == EXEMPLE_EMPLOYE["poste"]
+    assert "a_quitte_l_entreprise" not in fiche
+
+
+@sous_postgresql
 @pytest.mark.parametrize(
     "requete",
     [
         "DELETE FROM predictions",
         "UPDATE predictions SET probabilite = 0",
         "SELECT * FROM employes",
+        "SELECT a_quitte_l_entreprise FROM employes",
+        "SELECT jeu FROM employes",
+        "UPDATE employes SET age = 30",
         "DROP TABLE predictions",
         "CREATE TABLE intrusion (id int)",
     ],

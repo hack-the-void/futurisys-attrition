@@ -8,8 +8,8 @@ Quatre tables :
 
 Une entrée peut recevoir plusieurs prédictions, une par version de modèle. On peut ainsi
 recalculer l'historique avec un nouveau modèle et comparer les deux sur les mêmes données.
-Une entrée issue du dataset pointe vers son employé, ce qui permet de comparer la
-prédiction au départ réel directement en SQL.
+Quand l'utilisateur choisit un employé du dataset, l'entrée pointe vers lui : on peut
+alors comparer la prédiction au départ réel directement en SQL.
 """
 
 from collections.abc import Mapping
@@ -23,6 +23,7 @@ from sqlalchemy import (
     Engine,
     Float,
     ForeignKey,
+    RowMapping,
     String,
     UniqueConstraint,
     create_engine,
@@ -105,9 +106,9 @@ class Entree(Base):
     recue_le: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
-    source: Mapped[str] = mapped_column(String(20), comment="api, script ou dataset")
+    source: Mapped[str] = mapped_column(String(20), comment="api, ou le nom d'un script")
     employe_id: Mapped[int | None] = mapped_column(
-        ForeignKey("employes.id"), index=True, comment="Renseigné pour une entrée du dataset"
+        ForeignKey("employes.id"), index=True, comment="Employé du dataset choisi, s'il y en a un"
     )
 
     # Les 25 champs de attrition_api.schemas.Employe.
@@ -171,6 +172,9 @@ CHAMPS_ENTREE = [
     for c in Entree.__table__.columns
     if c.name not in {"id", "recue_le", "source", "employe_id"}
 ]
+# Colonnes de `employes` que l'API peut lire : ni la cible, ni le découpage train/test,
+# ni les colonnes que le modèle n'utilise pas.
+COLONNES_EMPLOYE_API = ["id", "departement", *CHAMPS_ENTREE]
 
 
 def creer_moteur(url: str) -> Engine:
@@ -236,3 +240,27 @@ def enregistrer_prediction(
 def lister_predictions(session: Session, limite: int) -> list[PredictionEnregistree]:
     requete = select(PredictionEnregistree).order_by(PredictionEnregistree.id.desc()).limit(limite)
     return list(session.scalars(requete))
+
+
+def lister_employes(
+    session: Session,
+    limite: int,
+    decalage: int = 0,
+    departement: str | None = None,
+    poste: str | None = None,
+) -> list[RowMapping]:
+    t = EmployeDataset.__table__.c
+    requete = select(t.id, t.age, t.genre, t.departement, t.poste)
+    if departement:
+        requete = requete.where(t.departement == departement)
+    if poste:
+        requete = requete.where(t.poste == poste)
+    requete = requete.order_by(t.id).offset(decalage).limit(limite)
+    return list(session.execute(requete).mappings())
+
+
+def lire_employe(session: Session, id_employe: int) -> RowMapping | None:
+    """Les colonnes d'un employé que l'API a le droit de lire."""
+    colonnes = [EmployeDataset.__table__.c[nom] for nom in COLONNES_EMPLOYE_API]
+    requete = select(*colonnes).where(EmployeDataset.id == id_employe)
+    return session.execute(requete).mappings().one_or_none()

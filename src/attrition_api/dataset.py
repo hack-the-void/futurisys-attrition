@@ -1,29 +1,19 @@
 """Chargement du dataset du projet 4 et insertion dans PostgreSQL.
 
 Les trois extraits CSV (SIRH, évaluations, sondage) restent hors du dépôt. Ce module les
-rapproche comme le projet 4, les insère dans la table `employes`, puis fait passer chaque
-employé par le modèle en enregistrant les entrées et les prédictions.
+rapproche comme le projet 4 et les insère dans la table `employes`.
 """
 
 from collections.abc import Collection
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from attrition_api.db import (
-    EmployeDataset,
-    Entree,
-    PredictionEnregistree,
-    enregistrer_modele,
-    enregistrer_prediction,
-)
-from attrition_api.modele import ModeleAttrition
-from attrition_api.schemas import Employe
+from attrition_api.db import EmployeDataset
 
 CIBLE = "a_quitte_l_entreprise"
-SOURCE_DATASET = "dataset"
 
 
 def charger_donnees_brutes(dossier: Path) -> pd.DataFrame:
@@ -51,54 +41,19 @@ def charger_donnees_brutes(dossier: Path) -> pd.DataFrame:
     )
 
 
-def supprimer_dataset(session: Session) -> None:
-    """Retire les employés du dataset, leurs entrées et leurs prédictions."""
-    entrees_dataset = select(Entree.id).where(Entree.source == SOURCE_DATASET)
-    # Suppression explicite : SQLite n'applique pas ON DELETE CASCADE par défaut.
-    session.execute(
-        delete(PredictionEnregistree).where(PredictionEnregistree.entree_id.in_(entrees_dataset))
-    )
-    session.execute(delete(Entree).where(Entree.source == SOURCE_DATASET))
-    session.execute(delete(EmployeDataset))
-
-
 def importer_employes(session: Session, brut: pd.DataFrame, ids_test: Collection[int]) -> int:
-    """Remplace le contenu de `employes` par le dataset. Renvoie le nombre de lignes."""
-    supprimer_dataset(session)
+    """Insère ou met à jour les employés du dataset. Renvoie le nombre de lignes.
+
+    Aucune prédiction n'est calculée ici : c'est l'utilisateur qui demande à l'API la
+    prédiction d'un employé. Un nouvel import garde donc les prédictions déjà faites.
+    """
     ids_test = set(ids_test)
-    lignes = []
+    # Les employés déjà en base sont chargés en une requête, puis mis à jour par merge.
+    session.scalars(select(EmployeDataset)).all()
     # astype(object) donne des types Python natifs, attendus par le pilote de la base.
     for id_employee, ligne in brut.astype(object).iterrows():
         donnees = ligne.to_dict() | {CIBLE: bool(ligne[CIBLE])}
         jeu = "test" if id_employee in ids_test else "train"
-        lignes.append(EmployeDataset(id=int(id_employee), jeu=jeu, **donnees))
-    session.add_all(lignes)
+        session.merge(EmployeDataset(id=int(id_employee), jeu=jeu, **donnees))
     session.commit()
-    return len(lignes)
-
-
-def predire_dataset(session: Session, modele: ModeleAttrition) -> int:
-    """Fait passer chaque employé du dataset par le modèle et enregistre le résultat.
-
-    Les champs sont validés par le même schéma que l'API, puis les entrées et les
-    prédictions sont écrites dans une seule transaction.
-    """
-    enregistrer_modele(session, modele)
-    employes = session.scalars(select(EmployeDataset).order_by(EmployeDataset.id)).all()
-    entrees = [
-        Employe(**{champ: getattr(e, champ) for champ in Employe.model_fields}).model_dump()
-        for e in employes
-    ]
-    probabilites = modele.predire(entrees)
-    for employe, entree, probabilite in zip(employes, entrees, probabilites, strict=True):
-        enregistrer_prediction(
-            session,
-            entree,
-            probabilite,
-            modele,
-            source=SOURCE_DATASET,
-            employe_id=employe.id,
-            valider=False,
-        )
-    session.commit()
-    return len(employes)
+    return len(brut)

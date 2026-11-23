@@ -118,4 +118,5 @@ GRANT USAGE ON SCHEMA public TO "api_attrition";
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM "api_attrition";
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM "api_attrition";
 GRANT SELECT, INSERT ON "modeles", "entrees", "predictions" TO "api_attrition";
+GRANT SELECT ("id", "departement", "age", "genre", "revenu_mensuel", "statut_marital", "poste", "nombre_experiences_precedentes", "annee_experience_totale", "annees_dans_l_entreprise", "annees_dans_le_poste_actuel", "satisfaction_employee_environnement", "note_evaluation_precedente", "satisfaction_employee_nature_travail", "satisfaction_employee_equipe", "satisfaction_employee_equilibre_pro_perso", "note_evaluation_actuelle", "heure_supplementaires", "augementation_salaire_precedente", "nombre_participation_pee", "nb_formations_suivies", "distance_domicile_travail", "niveau_education", "domaine_etude", "frequence_deplacement", "annees_depuis_la_derniere_promotion", "annes_sous_responsable_actuel") ON employes TO "api_attrition";
 GRANT USAGE ON SEQUENCE "entrees_id_seq", "predictions_id_seq" TO "api_attrition";

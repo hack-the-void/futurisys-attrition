@@ -55,30 +55,36 @@ ORDER BY p.probabilite DESC
 LIMIT 10;
 
 -- nom: performances_test
--- Résultats du modèle sur le jeu de test du projet 4, recalculés depuis la base :
--- prédictions enregistrées comparées aux départs réels de la table employes.
-SELECT p.version_modele, COUNT(*) AS employes,
+-- Résultats du modèle sur les employés du jeu de test dont la prédiction a été demandée,
+-- comparés à leur départ réel. Un employé prédit plusieurs fois compte une seule fois.
+SELECT d.version_modele, COUNT(*) AS employes,
        SUM(CASE WHEN emp.a_quitte_l_entreprise THEN 1 ELSE 0 END) AS departs,
-       SUM(CASE WHEN p.risque_depart AND emp.a_quitte_l_entreprise THEN 1 ELSE 0 END) AS vrais_positifs,
-       SUM(CASE WHEN p.risque_depart AND NOT emp.a_quitte_l_entreprise THEN 1 ELSE 0 END) AS fausses_alertes,
-       SUM(CASE WHEN NOT p.risque_depart AND emp.a_quitte_l_entreprise THEN 1 ELSE 0 END) AS departs_manques,
+       SUM(CASE WHEN d.risque_depart AND emp.a_quitte_l_entreprise THEN 1 ELSE 0 END) AS vrais_positifs,
+       SUM(CASE WHEN d.risque_depart AND NOT emp.a_quitte_l_entreprise THEN 1 ELSE 0 END) AS fausses_alertes,
+       SUM(CASE WHEN NOT d.risque_depart AND emp.a_quitte_l_entreprise THEN 1 ELSE 0 END) AS departs_manques,
        AVG(CASE WHEN emp.a_quitte_l_entreprise
-                THEN CASE WHEN p.risque_depart THEN 1.0 ELSE 0.0 END END) AS rappel
-FROM predictions p
-JOIN entrees e ON e.id = p.entree_id
-JOIN employes emp ON emp.id = e.employe_id
+                THEN CASE WHEN d.risque_depart THEN 1.0 ELSE 0.0 END END) AS rappel
+FROM (SELECT DISTINCT e.employe_id, p.version_modele, p.risque_depart
+      FROM predictions p
+      JOIN entrees e ON e.id = p.entree_id
+      WHERE e.employe_id IS NOT NULL) d
+JOIN employes emp ON emp.id = d.employe_id
 WHERE emp.jeu = 'test'
-GROUP BY p.version_modele
-ORDER BY p.version_modele;
+GROUP BY d.version_modele
+ORDER BY d.version_modele;
 
 -- nom: departs_par_departement
--- Taux de départ réel et taux d'alerte par département, sur tout le dataset.
+-- Par département : taux de départ réel sur tout le dataset, et taux d'alerte parmi les
+-- employés déjà prédits.
 SELECT emp.departement, COUNT(*) AS employes,
        AVG(CASE WHEN emp.a_quitte_l_entreprise THEN 1.0 ELSE 0.0 END) AS taux_depart_reel,
-       AVG(CASE WHEN p.risque_depart THEN 1.0 ELSE 0.0 END) AS taux_alerte
+       COUNT(d.employe_id) AS employes_predits,
+       AVG(CASE WHEN d.risque_depart THEN 1.0 WHEN NOT d.risque_depart THEN 0.0 END) AS taux_alerte
 FROM employes emp
-JOIN entrees e ON e.employe_id = emp.id
-JOIN predictions p ON p.entree_id = e.id
+LEFT JOIN (SELECT DISTINCT e.employe_id, p.risque_depart
+           FROM predictions p
+           JOIN entrees e ON e.id = p.entree_id
+           WHERE e.employe_id IS NOT NULL) d ON d.employe_id = emp.id
 GROUP BY emp.departement
 ORDER BY taux_depart_reel DESC;
 
