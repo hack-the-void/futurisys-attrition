@@ -1,0 +1,14 @@
+# Seuls pyproject.toml, uv.lock, README.md et src/ sont utiles à l'image.
+.env
+.env.*
+.git/
+.github/
+.venv/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+notes/
+data/
+tests/
