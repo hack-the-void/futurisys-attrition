@@ -12,6 +12,21 @@ jobs:
     name: Vérification
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: attrition_test
+          POSTGRES_USER: attrition
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U attrition -d attrition_test"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://attrition@127.0.0.1:5432/attrition_test
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,10 +53,14 @@ jobs:
           fi
 
       - name: Lancer les tests sur le commit à livrer
-        run: uv run --locked pytest
+        run: uv run --locked pytest --cov-report=html
 
-      - name: Construire le paquet
-        run: uv build
+      - name: Construire le paquet et joindre le rapport de couverture
+        run: |
+          uv build
+          (cd htmlcov && zip -qr "../dist/rapport-couverture-$GITHUB_REF_NAME.zip" .)
+          echo "## Couverture des tests" >> "$GITHUB_STEP_SUMMARY"
+          uv run --locked coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
 
       - name: Conserver le paquet
         uses: actions/upload-artifact@v7

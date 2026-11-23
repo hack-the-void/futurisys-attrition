@@ -41,8 +41,15 @@ Sans autre réglage, les tests utilisent une base SQLite temporaire. Pour les la
 PostgreSQL, comme en CI, définir `TEST_DATABASE_URL` vers une base dédiée : les tests en
 vident les tables.
 
-pytest affiche la couverture dans le terminal et échoue sous 80 %. Pour un rapport HTML,
-lancer `uv run --locked pytest --cov-report=html`, puis ouvrir `htmlcov/index.html`.
+pytest mesure la couverture avec pytest-cov, branches comprises, et échoue sous 90 %. Le
+terminal liste les lignes non couvertes. Pour un rapport HTML, lancer
+`uv run --locked pytest --cov-report=html`, puis ouvrir `htmlcov/index.html`. Sous SQLite,
+les tests des droits PostgreSQL sont ignorés : la couverture complète s'obtient avec
+`TEST_DATABASE_URL`, comme en CI.
+
+Le rapport de chaque exécution de la CI est dans le résumé du job **Tests** et dans
+l'artefact `rapport-couverture`. Chaque GitHub Release contient aussi le rapport HTML du
+commit livré (`rapport-couverture-vX.Y.Z.zip`).
 
 <details>
 <summary>Installation avec pip</summary>
