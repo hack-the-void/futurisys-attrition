@@ -41,4 +41,7 @@ du dépôt et le recharger avec scikit-learn 1.9.1 sous Python 3.12.
 
 Pour la livraison, exporter le modèle, son seuil et les paramètres figés sans les données
 RH. Joindre la date, les versions des données et des bibliothèques, le commit d'entraînement,
-les hyperparamètres et les résultats du test.
+les hyperparamètres et les résultats du test. C'est ce que fait
+[scripts/exporter_modele.py](../scripts/exporter_modele.py). Le script régénère aussi les
+probabilités de référence des tests. Après un nouvel export, vérifier ces probabilités et
+incrémenter `VERSION_MODELE`.

@@ -1,11 +1,14 @@
 # CI et livraison
 
 [ci.yml](../.github/workflows/ci.yml) tourne sur les pushs et les pull requests vers `main`.
-Les trois jobs doivent passer pour fusionner une PR.
+Les quatre jobs doivent passer pour fusionner une PR. Le job **Image Docker** est à ajouter
+aux contrôles obligatoires de la protection de `main`.
 
 - **Lint** exécute Ruff et vérifie que les exports `requirements*.txt` correspondent à `uv.lock`.
-- **Tests** lance pytest avec une couverture minimale de 80 %, puis vérifie la configuration
-  avec `APP_ENV=test`. Le rapport HTML et XML est disponible dans les artefacts du job.
+- **Tests** démarre un service PostgreSQL 17 jetable et y lance pytest, avec une couverture
+  minimale de 80 %. Il vérifie ensuite la configuration avec `APP_ENV=test`. Le rapport HTML
+  et XML est disponible dans les artefacts du job.
+- **Image Docker** construit l'image de l'API, pour détecter tôt un `Dockerfile` cassé.
 - **Secrets** lance Gitleaks sur les commits envoyés. GitHub bloque aussi l'envoi des secrets
   qu'il reconnaît.
 
@@ -37,7 +40,8 @@ Seul le job de publication dispose de `contents: write`, pour créer la release 
 commit appartient à `main` et que le tag correspond à la version dans `pyproject.toml`.
 Il lance les tests et construit le paquet. Le job de publication passe ensuite par
 l'environnement GitHub `production`, réservé aux tags `v*`. Il contrôle les secrets puis
-joint le paquet à une GitHub Release. Le déploiement local sera ajouté avec l'API.
+joint le paquet à une GitHub Release. Le déploiement de l'API se fait en local avec Docker
+Compose, comme la mission l'autorise (voir le README).
 
 Préparer la version sur une branche, puis ouvrir une PR.
 

@@ -1,0 +1,36 @@
+# Déploiement local : PostgreSQL et l'API.
+#   docker compose up -d --build   # tout
+#   docker compose up -d db        # la base seule, pour lancer l'API avec uv
+# Les valeurs viennent du fichier .env (voir .env.example).
+name: futurisys-attrition
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: attrition
+      POSTGRES_USER: attrition
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définir POSTGRES_PASSWORD dans .env}
+    ports:
+      - "127.0.0.1:5432:5432" # Accessible depuis cette machine seulement.
+    volumes:
+      - donnees-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attrition -d attrition"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      API_KEY: ${API_KEY:?Définir API_KEY dans .env}
+      DATABASE_URL: postgresql+psycopg://attrition:${POSTGRES_PASSWORD}@db:5432/attrition
+    ports:
+      - "127.0.0.1:8000:8000"
+
+volumes:
+  donnees-postgres:

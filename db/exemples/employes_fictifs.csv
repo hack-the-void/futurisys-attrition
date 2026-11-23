@@ -1,0 +1,51 @@
+age,genre,revenu_mensuel,statut_marital,poste,nombre_experiences_precedentes,annee_experience_totale,annees_dans_l_entreprise,annees_dans_le_poste_actuel,satisfaction_employee_environnement,note_evaluation_precedente,satisfaction_employee_nature_travail,satisfaction_employee_equipe,satisfaction_employee_equilibre_pro_perso,note_evaluation_actuelle,heure_supplementaires,augementation_salaire_precedente,nombre_participation_pee,nb_formations_suivies,distance_domicile_travail,niveau_education,domaine_etude,frequence_deplacement,annees_depuis_la_derniere_promotion,annes_sous_responsable_actuel
+60,F,5303.0,Divorcé(e),Manager,1,7,0,0,4,1,1,1,2,3,False,11.0,1,5,21,5,Marketing,Occasionnel,0,0
+30,M,1868.0,Marié(e),Représentant Commercial,1,11,6,0,4,1,3,3,3,3,False,19.0,0,3,3,5,Infra & Cloud,Occasionnel,4,6
+43,F,7035.0,Marié(e),Cadre Commercial,1,18,6,6,2,1,4,3,4,4,True,16.0,1,5,9,1,Ressources Humaines,Occasionnel,4,5
+35,M,4304.0,Divorcé(e),Ressources Humaines,8,5,3,1,3,1,2,1,3,4,True,14.0,2,1,21,4,Marketing,Occasionnel,3,1
+36,M,7721.0,Marié(e),Tech Lead,9,4,1,1,3,2,2,4,1,3,False,13.0,1,6,22,4,Ressources Humaines,Aucun,1,1
+53,M,7570.0,Marié(e),Cadre Commercial,1,16,0,0,4,2,4,1,3,3,False,12.0,2,6,21,5,Ressources Humaines,Aucun,0,0
+54,M,1588.0,Marié(e),Représentant Commercial,4,33,0,0,1,2,1,1,4,3,False,19.0,1,1,22,4,Ressources Humaines,Aucun,0,0
+54,M,9509.0,Divorcé(e),Manager,5,12,11,7,4,1,2,2,1,4,True,19.0,1,4,8,1,Autre,Occasionnel,0,3
+24,F,5127.0,Marié(e),Cadre Commercial,3,0,0,0,4,2,4,4,2,3,True,17.0,2,3,14,4,Transformation Digitale,Aucun,0,0
+45,F,4694.0,Divorcé(e),Cadre Commercial,7,23,10,2,4,2,3,4,2,3,False,24.0,0,0,21,5,Autre,Frequent,3,2
+46,M,21825.0,Célibataire,Directeur Technique,6,15,15,0,4,3,4,3,4,4,True,15.0,1,0,19,5,Autre,Occasionnel,1,1
+57,F,4162.0,Divorcé(e),Tech Lead,1,30,16,5,1,1,2,4,1,3,False,11.0,0,3,22,5,Ressources Humaines,Occasionnel,8,6
+40,F,3518.0,Marié(e),Ressources Humaines,7,7,4,2,1,1,4,1,1,3,False,13.0,2,0,29,2,Infra & Cloud,Occasionnel,3,4
+39,M,3885.0,Célibataire,Assistant de Direction,2,19,16,8,1,1,2,3,3,3,False,14.0,2,4,16,3,Autre,Aucun,13,8
+22,M,2105.0,Marié(e),Consultant,8,0,0,0,1,1,1,2,1,4,False,13.0,3,1,2,3,Infra & Cloud,Occasionnel,0,0
+33,M,3557.0,Divorcé(e),Représentant Commercial,2,7,1,0,2,2,4,1,2,4,False,17.0,1,2,6,1,Marketing,Occasionnel,1,0
+32,M,3240.0,Célibataire,Représentant Commercial,3,13,7,0,2,4,3,3,1,4,False,19.0,3,5,27,5,Infra & Cloud,Frequent,1,4
+31,F,3111.0,Marié(e),Assistant de Direction,5,9,4,3,1,4,2,3,1,4,True,25.0,1,2,14,1,Transformation Digitale,Frequent,4,2
+27,M,5864.0,Divorcé(e),Manager,4,4,4,4,2,2,4,4,2,4,False,24.0,0,2,10,2,Marketing,Occasionnel,4,2
+49,M,20390.0,Divorcé(e),Directeur Technique,2,28,14,10,1,3,3,1,2,4,True,14.0,1,0,2,2,Marketing,Occasionnel,12,1
+49,M,16436.0,Célibataire,Directeur Technique,2,26,20,20,1,1,4,2,2,4,True,14.0,0,3,5,4,Transformation Digitale,Occasionnel,17,19
+40,M,8152.0,Divorcé(e),Tech Lead,7,14,9,2,4,4,3,2,3,4,False,15.0,3,0,23,3,Entrepreunariat,Occasionnel,5,8
+25,M,19072.0,Divorcé(e),Directeur Technique,3,2,0,0,4,4,3,4,4,3,True,17.0,3,6,19,1,Ressources Humaines,Occasionnel,0,0
+39,F,6386.0,Marié(e),Tech Lead,6,12,6,3,1,4,3,4,2,4,False,20.0,0,3,19,5,Transformation Digitale,Aucun,5,3
+28,M,2608.0,Célibataire,Assistant de Direction,7,7,2,1,3,4,3,4,3,3,False,22.0,0,2,8,1,Transformation Digitale,Aucun,0,0
+32,F,2023.0,Divorcé(e),Consultant,1,13,0,0,4,3,3,2,1,3,False,12.0,0,2,19,4,Marketing,Frequent,0,0
+57,F,8425.0,Divorcé(e),Manager,0,15,3,2,4,3,1,3,1,4,False,12.0,3,2,21,4,Transformation Digitale,Aucun,1,2
+59,M,22003.0,Divorcé(e),Senior Manager,4,34,30,10,2,1,3,4,2,4,False,21.0,3,2,1,4,Infra & Cloud,Aucun,6,11
+36,F,6902.0,Célibataire,Manager,1,10,4,1,4,4,2,4,4,4,False,12.0,2,1,13,2,Infra & Cloud,Occasionnel,2,3
+55,M,2726.0,Marié(e),Ressources Humaines,4,33,22,9,3,2,1,2,3,3,False,23.0,1,1,7,4,Infra & Cloud,Occasionnel,16,19
+38,F,6053.0,Marié(e),Manager,0,3,1,0,3,1,1,3,2,4,True,11.0,2,3,16,4,Infra & Cloud,Aucun,0,1
+50,M,2039.0,Divorcé(e),Ressources Humaines,0,7,1,0,2,3,1,2,1,4,False,23.0,1,6,17,4,Marketing,Frequent,1,1
+39,F,6857.0,Marié(e),Cadre Commercial,1,18,1,0,2,2,1,2,1,4,False,20.0,3,2,2,2,Infra & Cloud,Occasionnel,1,0
+34,F,3203.0,Divorcé(e),Ressources Humaines,2,8,3,2,2,1,1,2,3,4,False,18.0,2,5,13,3,Ressources Humaines,Occasionnel,3,0
+58,M,1601.0,Célibataire,Représentant Commercial,9,2,1,0,3,1,2,4,4,4,True,20.0,3,5,27,4,Autre,Occasionnel,1,1
+40,M,2682.0,Marié(e),Consultant,4,21,3,3,1,4,1,3,3,4,True,23.0,3,6,17,1,Transformation Digitale,Occasionnel,3,3
+23,M,21085.0,Célibataire,Senior Manager,4,1,1,0,3,4,4,1,1,3,False,15.0,0,4,14,1,Entrepreunariat,Frequent,0,1
+27,M,6351.0,Marié(e),Manager,7,2,1,0,4,2,4,2,2,3,True,23.0,3,2,26,5,Infra & Cloud,Occasionnel,1,1
+57,M,2975.0,Marié(e),Consultant,5,37,31,24,4,3,2,2,4,3,False,17.0,0,2,24,4,Transformation Digitale,Frequent,24,24
+29,M,3740.0,Marié(e),Consultant,1,7,0,0,1,2,4,2,1,4,False,15.0,2,4,23,4,Transformation Digitale,Aucun,0,0
+40,F,7053.0,Célibataire,Tech Lead,4,20,15,7,1,4,1,1,4,3,False,25.0,0,0,11,1,Infra & Cloud,Occasionnel,13,4
+35,F,2136.0,Divorcé(e),Consultant,6,16,13,9,2,4,2,2,4,4,False,21.0,0,6,15,3,Transformation Digitale,Occasionnel,1,7
+42,M,2986.0,Marié(e),Ressources Humaines,3,18,9,6,4,1,2,4,3,4,False,15.0,0,6,22,4,Infra & Cloud,Aucun,0,9
+51,F,2861.0,Divorcé(e),Représentant Commercial,4,18,7,2,1,1,3,4,1,4,False,12.0,2,2,24,4,Entrepreunariat,Occasionnel,5,4
+30,M,8469.0,Marié(e),Manager,1,4,3,1,2,4,3,1,4,3,True,12.0,3,2,22,3,Ressources Humaines,Occasionnel,2,0
+34,M,8589.0,Célibataire,Tech Lead,1,15,0,0,3,4,1,2,1,3,False,18.0,0,0,8,5,Entrepreunariat,Occasionnel,0,0
+57,M,6808.0,Marié(e),Cadre Commercial,0,9,6,5,3,2,4,4,2,4,True,21.0,2,4,29,3,Autre,Occasionnel,1,0
+49,F,10574.0,Marié(e),Directeur Technique,3,5,5,1,2,1,2,2,2,4,False,23.0,0,2,28,2,Entrepreunariat,Occasionnel,1,0
+21,F,2762.0,Célibataire,Représentant Commercial,2,1,0,0,1,2,4,1,1,4,False,16.0,0,3,17,2,Ressources Humaines,Aucun,0,0
+21,M,3553.0,Marié(e),Ressources Humaines,7,0,0,0,1,3,2,1,2,4,False,20.0,2,3,20,5,Infra & Cloud,Occasionnel,0,0
